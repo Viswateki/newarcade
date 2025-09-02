@@ -1,0 +1,480 @@
+@import "tailwindcss";
+
+/* Theme Color Variables */
+:root {
+  --color-beige: #f5f5dc;
+  --color-beige-dark: #e6e6cd;
+  --color-beige-text: #2c2c2c;
+  --color-beige-text-light: #4a4a4a;
+}
+
+/* Dark mode configuration */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground-rgb: 248, 249, 250;
+    --background-start-rgb: 15, 20, 25;
+    --background-end-rgb: 15, 20, 25;
+    --color-beige: #2c2c2c;
+    --color-beige-dark: #1a1a1a;
+    --color-beige-text: #f5f5dc;
+    --color-beige-text-light: #e6e6cd;
+  }
+}
+
+/* Dark mode theme variables */
+.dark {
+  --foreground-rgb: 248, 249, 250;
+  --background-start-rgb: 15, 20, 25;
+  --background-end-rgb: 15, 20, 25;
+  --color-beige: #2c2c2c;
+  --color-beige-dark: #1a1a1a;
+  --color-beige-text: #f5f5dc;
+  --color-beige-text-light: #e6e6cd;
+}
+
+.light {
+  --foreground-rgb: 26, 26, 26;
+  --background-start-rgb: 250, 251, 252;
+  --background-end-rgb: 250, 251, 252;
+  --color-beige: #f5f5dc;
+  --color-beige-dark: #e6e6cd;
+  --color-beige-text: #2c2c2c;
+  --color-beige-text-light: #4a4a4a;
+}
+
+/* Simple, clean navigation styles */
+.card-nav-container {
+  position: absolute !important;
+  z-index: 50 !important;
+}
+
+/* Dashboard Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes bounceIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.3) translateY(-50px);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+  70% {
+    transform: scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.6s ease-out;
+}
+
+.animate-slideInLeft {
+  animation: slideInLeft 0.8s ease-out;
+}
+
+.animate-slideInRight {
+  animation: slideInRight 0.8s ease-out;
+}
+
+.animate-slideInUp {
+  animation: slideInUp 0.6s ease-out;
+}
+
+.animate-slideInDown {
+  animation: slideInDown 0.6s ease-out;
+}
+
+.animate-fadeInUp {
+  animation: fadeInUp 0.8s ease-out;
+}
+
+.animate-bounce-in {
+  animation: bounceIn 0.8s ease-out;
+}
+
+/* Hover animations for cards */
+.animate-on-hover {
+  transition: all 0.3s ease;
+}
+
+.animate-on-hover:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+}
+
+/* Navigation specific fixes */
+nav, nav *, [role="button"], button, a {
+  pointer-events: auto !important;
+}
+
+/* Ensure navigation area is always on top and clickable */
+header {
+  position: relative !important;
+  z-index: 9999 !important;
+  pointer-events: auto !important;
+}
+
+header * {
+  pointer-events: auto !important;
+}
+
+/* Dotted Background Theme with White Shade Corners */
+.dotted-background {
+  background-color: #f8fafc;
+  background-image: 
+    radial-gradient(circle, #000000 1px, transparent 1px),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, transparent 25%),
+    linear-gradient(225deg, rgba(255, 255, 255, 0.8) 0%, transparent 25%),
+    linear-gradient(315deg, rgba(255, 255, 255, 0.8) 0%, transparent 25%),
+    linear-gradient(45deg, rgba(255, 255, 255, 0.8) 0%, transparent 25%);
+  background-size: 
+    20px 20px,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%;
+  background-position: 
+    0 0,
+    top left,
+    top right,
+    bottom left,
+    bottom right;
+  background-repeat: repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+  min-height: 100vh;
+  position: relative;
+}
+
+.dotted-background::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    radial-gradient(ellipse 200px 200px at top left, rgba(255, 255, 255, 0.6) 0%, transparent 70%),
+    radial-gradient(ellipse 200px 200px at top right, rgba(255, 255, 255, 0.6) 0%, transparent 70%),
+    radial-gradient(ellipse 200px 200px at bottom left, rgba(255, 255, 255, 0.6) 0%, transparent 70%),
+    radial-gradient(ellipse 200px 200px at bottom right, rgba(255, 255, 255, 0.6) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.dotted-background > * {
+  position: relative;
+  z-index: 2;
+}
+
+/* Alternative dotted patterns */
+.dotted-background-dense {
+  background-color: #f1f5f9;
+  background-image: 
+    radial-gradient(circle, #000000 1px, transparent 1px),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.4) 0%, transparent 30%),
+    linear-gradient(225deg, rgba(255, 255, 255, 0.4) 0%, transparent 30%),
+    linear-gradient(315deg, rgba(255, 255, 255, 0.4) 0%, transparent 30%),
+    linear-gradient(45deg, rgba(255, 255, 255, 0.4) 0%, transparent 30%);
+  background-size: 
+    15px 15px,
+    40% 40%,
+    40% 40%,
+    40% 40%,
+    40% 40%;
+  background-position:
+    0 0,
+    top left,
+    top right,
+    bottom left,
+    bottom right;
+  background-repeat: repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+  min-height: 100vh;
+}
+
+.dotted-background-sparse {
+  background-color: #ffffff;
+  background-image: 
+    radial-gradient(circle, #000000 1.5px, transparent 1.5px),
+    radial-gradient(ellipse 80% 80% at top left, rgba(255, 255, 255, 0.6) 0%, transparent 60%),
+    radial-gradient(ellipse 80% 80% at top right, rgba(255, 255, 255, 0.6) 0%, transparent 60%),
+    radial-gradient(ellipse 80% 80% at bottom left, rgba(255, 255, 255, 0.6) 0%, transparent 60%),
+    radial-gradient(ellipse 80% 80% at bottom right, rgba(255, 255, 255, 0.6) 0%, transparent 60%);
+  background-size: 
+    30px 30px,
+    60% 60%,
+    60% 60%,
+    60% 60%,
+    60% 60%;
+  background-position:
+    0 0,
+    top left,
+    top right,
+    bottom left,
+    bottom right;
+  background-repeat: repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+  min-height: 100vh;
+}
+
+.dotted-background-offset {
+  background-color: #f8fafc;
+  background-image: 
+    radial-gradient(circle, #000000 1px, transparent 1px),
+    radial-gradient(circle, #000000 1px, transparent 1px);
+  background-size: 20px 20px;
+  background-position: 0 0, 10px 10px;
+  min-height: 100vh;
+}
+
+/* Dark theme variant */
+.dotted-background-dark {
+  background-color: #0f172a;
+  background-image: radial-gradient(circle, #ffffff 1px, transparent 1px);
+  background-size: 20px 20px;
+  min-height: 100vh;
+}
+
+/* Animated dotted background */
+.dotted-background-animated {
+  background-color: #f8fafc;
+  background-image: radial-gradient(circle, #000000 1px, transparent 1px);
+  background-size: 20px 20px;
+  animation: dotShift 10s linear infinite;
+  min-height: 100vh;
+}
+
+@keyframes dotShift {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 20px 20px;
+  }
+}
+
+/* Gradient dotted background */
+.dotted-background-gradient {
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  background-image: 
+    radial-gradient(circle, #000000 1px, transparent 1px),
+    radial-gradient(ellipse 120% 120% at top left, rgba(255, 255, 255, 0.5) 0%, transparent 40%),
+    radial-gradient(ellipse 120% 120% at top right, rgba(255, 255, 255, 0.5) 0%, transparent 40%),
+    radial-gradient(ellipse 120% 120% at bottom left, rgba(255, 255, 255, 0.5) 0%, transparent 40%),
+    radial-gradient(ellipse 120% 120% at bottom right, rgba(255, 255, 255, 0.5) 0%, transparent 40%);
+  background-size: 
+    25px 25px,
+    50% 50%,
+    50% 50%,
+    50% 50%,
+    50% 50%;
+  background-position:
+    0 0,
+    top left,
+    top right,
+    bottom left,
+    bottom right;
+  background-repeat: repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+  min-height: 100vh;
+}
+
+/* Enhanced white corner shading - matches the image style */
+.dotted-background-white-corners {
+  background-color: #f0f0f0;
+  background-image: radial-gradient(circle, #000000 1px, transparent 1px);
+  background-size: 20px 20px;
+  min-height: 100vh;
+  position: relative;
+  transition: background-color 0.3s ease, background-image 0.3s ease;
+}
+
+.dark .dotted-background-white-corners {
+  background-color: #1a1a1a;
+  background-image: radial-gradient(circle, #ffffff 1px, transparent 1px);
+}
+
+.dotted-background-white-corners::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    radial-gradient(ellipse 300px 300px at top left, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.3) 40%, transparent 70%),
+    radial-gradient(ellipse 300px 300px at top right, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.3) 40%, transparent 70%),
+    radial-gradient(ellipse 300px 300px at bottom left, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.3) 40%, transparent 70%),
+    radial-gradient(ellipse 300px 300px at bottom right, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.3) 40%, transparent 70%);
+  pointer-events: none;
+  z-index: 1;
+  transition: background 0.3s ease;
+}
+
+.dark .dotted-background-white-corners::before {
+  background: 
+    radial-gradient(ellipse 300px 300px at top left, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.3) 40%, transparent 70%),
+    radial-gradient(ellipse 300px 300px at top right, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.3) 40%, transparent 70%),
+    radial-gradient(ellipse 300px 300px at bottom left, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.3) 40%, transparent 70%),
+    radial-gradient(ellipse 300px 300px at bottom right, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.3) 40%, transparent 70%);
+}
+
+.dotted-background-white-corners > * {
+  position: relative;
+  z-index: 2;
+}
+
+.dotted-background-white-corners > header {
+  z-index: 99999 !important;
+  position: relative !important;
+}
+
+/* Line clamp utilities for text truncation */
+.line-clamp-1 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+}
+
+.line-clamp-2 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.line-clamp-3 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+/* Enhanced hover effects */
+.hover-lift {
+  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+/* Smooth transitions for interactive elements */
+.transition-smooth {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Enhanced focus states */
+.focus-ring:focus {
+  outline: none;
+  ring: 2px;
+  ring-color: #3b82f6;
+  ring-offset: 2px;
+}
+
+/* Custom scrollbar for webkit browsers */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.gradient-box {
+  position: relative;
+  background: linear-gradient(to right, #523bb8, #7253ed);
+  width: 300px; /* Adjust as needed */
+  height: 150px; /* Adjust as needed */
+  overflow: hidden;
+}
+
+.gradient-box::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at 0% 0%, white 0%, transparent 50%),
+              radial-gradient(circle at 100% 0%, white 0%, transparent 50%),
+              radial-gradient(circle at 0% 100%, white 0%, transparent 50%),
+              radial-gradient(circle at 100% 100%, white 0%, transparent 50%);
+}
