@@ -3,6 +3,8 @@ import React from 'react';
 import NavigationWrapper from '@/components/NavigationWrapper';
 import HeroSection from '@/components/HeroSection';
 import { Marquee, ReviewCard } from '@/components/Marquee';
+import FAQSection from '@/components/FAQSection';
+import Footer from '@/components/Footer';
 import { useTheme } from '@/contexts/ThemeContext';
 
 const Page: React.FC = () => {
@@ -96,6 +98,12 @@ const Page: React.FC = () => {
             </Marquee>
           </div>
         </div>
+        
+        {/* FAQ Section */}
+        <FAQSection />
+        
+        {/* Footer */}
+        <Footer />
       </div>
     </>
   );

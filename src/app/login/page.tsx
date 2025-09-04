@@ -260,16 +260,6 @@ export default function Login() {
               </button>
             </form>
           )}
-
-          <div className="mt-6 text-center">
-            <Link 
-              href="/forgot-password" 
-              className="text-sm hover:underline transition-colors duration-200"
-              style={{ color: colors.accent }}
-            >
-              Forgot your password?
-            </Link>
-          </div>
         </div>
       </div>
     </div>
