@@ -10,10 +10,19 @@ import NavigationWrapper from '@/components/NavigationWrapper';
 import { 
   FaEye, 
   FaHeart, 
-  FaComment
+  FaComment,
+  FaBookmark,
+  FaClock,
+  FaUser,
+  FaTags,
+  FaStar,
+  FaSearch,
+  FaPlus,
+  FaRss
 } from 'react-icons/fa';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import CategoryFilter from '@/components/CategoryFilter/CategoryFilter';
 
 
 export default function BlogsPage() {
@@ -26,6 +35,26 @@ export default function BlogsPage() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('All');
+
+  const categories = [
+    'All',
+    'Technology',
+    'Programming',
+    'Data Science',
+    'AI & Machine Learning',
+    'Web Development',
+    'Mobile Development',
+    'DevOps',
+    'Design',
+    'Startup',
+    'Career',
+    'Tutorial',
+    'News',
+    'Opinion',
+    'Review',
+  ];
 
   const filterAndSortBlogs = useCallback(() => {
     let filtered = [...blogs];
@@ -34,11 +63,26 @@ export default function BlogsPage() {
     const featuredBlogIds = featuredBlogs.map(blog => blog.$id);
     filtered = filtered.filter(blog => !featuredBlogIds.includes(blog.$id));
 
+    // Apply search filter
+    if (searchQuery.trim()) {
+      filtered = filtered.filter(blog => 
+        blog.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        blog.excerpt.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        blog.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        formatTags(blog.tags).some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+      );
+    }
+
+    // Apply category filter
+    if (selectedCategory && selectedCategory !== 'All') {
+      filtered = filtered.filter(blog => blog.category === selectedCategory);
+    }
+
     // Sort blogs by latest
     filtered.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
 
     setFilteredBlogs(filtered);
-  }, [blogs, featuredBlogs]);
+  }, [blogs, featuredBlogs, searchQuery, selectedCategory]);
 
   useEffect(() => {
     fetchBlogs();
@@ -156,248 +200,396 @@ export default function BlogsPage() {
     });
   };
 
-  const BlogCard = ({ blog, featured = false }: { blog: Blog; featured?: boolean }) => (
-    <article 
-      className={`aspect-auto p-8 border rounded-3xl transition-all duration-300 hover:shadow-2xl ${
-        featured ? 'overflow-hidden' : ''
-      }`}
-      style={{ 
-        backgroundColor: colors.card, 
-        borderColor: colors.border,
-        boxShadow: colors.background === '#fafbfc' ? '0 25px 50px -12px rgba(0, 0, 0, 0.1)' : 'none'
-      }}
-    >
-      {featured && blog.featured_image && (
-        <div className="aspect-video overflow-hidden mb-6 rounded-2xl">
+  const BlogCard = ({ blog, featured = false }: { blog: Blog; featured?: boolean }) => {
+    const defaultImage = `https://images.unsplash.com/photo-1557804506-669a67965ba0?w=800&h=400&fit=crop&crop=focalpoint&fp-y=.4&q=80`;
+    const imageUrl = blog.featured_image || defaultImage;
+    
+    return (
+      <article 
+        className={`group relative overflow-hidden bg-white dark:bg-gray-900 rounded-2xl border transition-all duration-500 hover:shadow-2xl hover:scale-[1.02] ${
+          featured ? 'lg:col-span-2 lg:row-span-2' : ''
+        }`}
+        style={{ 
+          backgroundColor: colors.card, 
+          borderColor: colors.border,
+          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)'
+        }}
+      >
+        {/* Image Section */}
+        <div className={`relative overflow-hidden ${featured ? 'aspect-[16/9]' : 'aspect-[16/10]'}`}>
           <img 
-            src={blog.featured_image} 
+            src={imageUrl} 
             alt={blog.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = defaultImage;
+            }}
           />
-        </div>
-      )}
-      
-      {/* Author Info */}
-      <div className="flex gap-4 mb-6">
-        <div className="w-12 h-12 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-white text-lg font-bold">
-          {blog.author_name.charAt(0).toUpperCase()}
-        </div>
-        <div>
-          <h6 className="text-lg font-medium" style={{ color: colors.cardForeground }}>
-            {blog.author_name}
-          </h6>
-          <p className="text-sm opacity-60" style={{ color: colors.cardForeground }}>
-            {blog.category}
-          </p>
-        </div>
-      </div>
-
-      {/* Content */}
-      <Link href={`/blog/${blog.$id}`}>
-        <div className="cursor-pointer">
-          <h2 className={`font-bold mb-3 group-hover:text-blue-600 transition-colors ${
-            featured ? 'text-2xl' : 'text-xl'
-          }`} style={{ color: colors.cardForeground }}>
-            {blog.title}
-          </h2>
           
-          {blog.subtitle && (
-            <h3 className="text-lg opacity-70 mb-3" style={{ color: colors.cardForeground }}>
-              {blog.subtitle}
-            </h3>
-          )}
+          {/* Gradient Overlay */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           
-          <p className="opacity-70 mb-4 leading-relaxed" style={{ color: colors.cardForeground }}>
-            {blog.excerpt}
-          </p>
-        </div>
-      </Link>
-
-      {!featured && blog.featured_image && (
-        <div className="mb-6">
-          <img 
-            src={blog.featured_image} 
-            alt={blog.title}
-            className="w-full h-48 object-cover rounded-2xl"
-          />
-        </div>
-      )}
-
-      {/* Tags */}
-      {formatTags(blog.tags).length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-6">
-          {formatTags(blog.tags).slice(0, 3).map((tag: string) => (
-            <span
-              key={tag}
-              className="px-3 py-1 rounded-full text-sm transition-colors"
-              style={{ 
-                backgroundColor: colors.background,
-                color: colors.cardForeground,
-                border: `1px solid ${colors.border}`
-              }}
-            >
-              {tag}
+          {/* Category Badge */}
+          <div className="absolute top-4 left-4">
+            <span className="px-3 py-1.5 bg-white/20 backdrop-blur-md rounded-full text-white text-sm font-medium border border-white/20">
+              {blog.category}
             </span>
-          ))}
-          {formatTags(blog.tags).length > 3 && (
-            <span className="text-sm opacity-60" style={{ color: colors.cardForeground }}>
-              +{formatTags(blog.tags).length - 3} more
-            </span>
-          )}
-        </div>
-      )}
+          </div>
 
-      {/* Footer */}
-      <div className="flex items-center justify-between pt-4 border-t" style={{ borderColor: colors.border }}>
-        <div className="flex items-center space-x-4">
-          <button
-            onClick={() => handleLike(blog.$id!)}
-            className="flex items-center space-x-1 text-sm opacity-60 hover:opacity-100 transition-opacity"
-            style={{ color: colors.cardForeground }}
-          >
-            <FaHeart />
-            <span>{blog.likes}</span>
-          </button>
-          
-          <Link href={`/blog/${blog.$id}#comments`}>
-            <div className="flex items-center space-x-1 text-sm opacity-60 hover:opacity-100 transition-opacity cursor-pointer"
-              style={{ color: colors.cardForeground }}
-            >
-              <FaComment />
-              <span>{blog.comments_count}</span>
+          {/* Featured Badge */}
+          {featured && (
+            <div className="absolute top-4 right-4">
+              <div className="flex items-center space-x-1 px-3 py-1.5 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full text-white text-sm font-bold">
+                <FaStar className="text-xs" />
+                <span>Featured</span>
+              </div>
             </div>
-          </Link>
-          
-          <div className="flex items-center space-x-1 text-sm opacity-60" style={{ color: colors.cardForeground }}>
-            <FaEye />
-            <span>{blog.views}</span>
+          )}
+
+          {/* Reading Time */}
+          <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            <div className="flex items-center space-x-1 px-3 py-1.5 bg-black/50 backdrop-blur-md rounded-full text-white text-sm">
+              <FaClock className="text-xs" />
+              <span>{formatReadingTime(blog.reading_time)}</span>
+            </div>
           </div>
         </div>
-        
-        <div className="flex items-center space-x-2 text-sm opacity-60" style={{ color: colors.cardForeground }}>
-          <span>{formatDate(blog.updated_at)}</span>
-          <span>•</span>
-          <span>{formatReadingTime(blog.reading_time)}</span>
+
+        {/* Content Section */}
+        <div className="p-6 space-y-4">
+          {/* Author Info */}
+          <div className="flex items-center space-x-3">
+            <div className="relative">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm">
+                {blog.author_name.charAt(0).toUpperCase()}
+              </div>
+              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-white dark:border-gray-900" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-sm truncate" style={{ color: colors.cardForeground }}>
+                {blog.author_name}
+              </p>
+              <p className="text-xs opacity-60" style={{ color: colors.cardForeground }}>
+                {formatDate(blog.updated_at)}
+              </p>
+            </div>
+          </div>
+
+          {/* Title and Content */}
+          <Link href={`/blog/${blog.$id}`}>
+            <div className="cursor-pointer space-y-2">
+              <h2 className={`font-bold leading-tight line-clamp-2 group-hover:text-blue-600 transition-colors duration-300 ${
+                featured ? 'text-2xl' : 'text-lg'
+              }`} style={{ color: colors.cardForeground }}>
+                {blog.title}
+              </h2>
+              
+              {blog.subtitle && (
+                <h3 className="text-sm opacity-70 line-clamp-1" style={{ color: colors.cardForeground }}>
+                  {blog.subtitle}
+                </h3>
+              )}
+              
+              <p className={`opacity-70 leading-relaxed line-clamp-3 ${
+                featured ? 'text-base' : 'text-sm'
+              }`} style={{ color: colors.cardForeground }}>
+                {blog.excerpt}
+              </p>
+            </div>
+          </Link>
+
+          {/* Tags */}
+          {formatTags(blog.tags).length > 0 && (
+            <div className="flex items-center space-x-2">
+              <FaTags className="text-xs opacity-40" style={{ color: colors.cardForeground }} />
+              <div className="flex flex-wrap gap-1">
+                {formatTags(blog.tags).slice(0, 2).map((tag: string) => (
+                  <span
+                    key={tag}
+                    className="px-2 py-1 rounded-md text-xs font-medium transition-colors"
+                    style={{ 
+                      backgroundColor: colors.background,
+                      color: colors.cardForeground,
+                      border: `1px solid ${colors.border}`
+                    }}
+                  >
+                    #{tag}
+                  </span>
+                ))}
+                {formatTags(blog.tags).length > 2 && (
+                  <span className="text-xs opacity-50" style={{ color: colors.cardForeground }}>
+                    +{formatTags(blog.tags).length - 2}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Stats and Actions */}
+          <div className="flex items-center justify-between pt-4 border-t" style={{ borderColor: colors.border }}>
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => handleLike(blog.$id!)}
+                className="group/btn flex items-center space-x-1 text-xs opacity-60 hover:opacity-100 hover:text-red-500 transition-all duration-300"
+                style={{ color: colors.cardForeground }}
+              >
+                <FaHeart className="group-hover/btn:scale-125 transition-transform duration-300" />
+                <span>{blog.likes}</span>
+              </button>
+              
+              <Link href={`/blog/${blog.$id}#comments`}>
+                <div className="group/btn flex items-center space-x-1 text-xs opacity-60 hover:opacity-100 hover:text-blue-500 transition-all duration-300 cursor-pointer"
+                  style={{ color: colors.cardForeground }}
+                >
+                  <FaComment className="group-hover/btn:scale-125 transition-transform duration-300" />
+                  <span>{blog.comments_count}</span>
+                </div>
+              </Link>
+              
+              <div className="flex items-center space-x-1 text-xs opacity-60" style={{ color: colors.cardForeground }}>
+                <FaEye />
+                <span>{blog.views}</span>
+              </div>
+            </div>
+            
+            <button
+              onClick={() => handleBookmark(blog.$id!)}
+              className="opacity-60 hover:opacity-100 hover:text-yellow-500 transition-all duration-300 hover:scale-125"
+              style={{ color: colors.cardForeground }}
+            >
+              <FaBookmark className="text-sm" />
+            </button>
+          </div>
         </div>
-      </div>
-    </article>
-  );
+
+        {/* Hover Effect Border */}
+        <div className="absolute inset-0 border-2 border-transparent group-hover:border-blue-500/30 rounded-2xl transition-all duration-300 pointer-events-none" />
+      </article>
+    );
+  };
 
   return (
     <div 
-      className="min-h-screen"
+      className="min-h-screen transition-all duration-300"
       style={{ backgroundColor: colors.background }}
     >
       <NavigationWrapper />
-      <div className="py-8" style={{ color: colors.foreground }}>
-        <div className="max-w-7xl mx-auto px-6 md:px-12 xl:px-6">
-          {/* Header */}
-          <div className="mb-10 space-y-4 px-6 md:px-0">
-            <h2 className="text-center text-2xl font-bold md:text-4xl" style={{ color: colors.foreground }}>
-              We have some fans.
-            </h2>
-          </div>
 
-        {/* Blog Grid - Masonry Layout */}
-        <div className="space-y-8">
-          {loading && blogs.length === 0 ? (
-            <div className="md:columns-2 lg:columns-3 gap-8 space-y-8">
-              {[...Array(6)].map((_, i) => (
-                <div 
-                  key={i}
-                  className="aspect-auto p-8 border rounded-3xl animate-pulse break-inside-avoid"
+      {/* Main Content */}
+      <div className="relative pt-28 pb-16">
+        
+        {/* Header Section */}
+        <div className="text-center mb-12 px-4 sm:px-6 lg:px-8">
+          <div className="max-w-4xl mx-auto">
+            
+            <p className="text-3xl lg:text-4xl font-bold opacity-90 max-w-3xl mx-auto leading-relaxed mb-8 bg-gradient-to-r from-purple-600 via-blue-600 to-cyan-500 bg-clip-text text-transparent">
+              Discover stories crafted by our community with love
+            </p>
+
+            {/* Search Section */}
+            <div className="flex justify-center mb-8">
+              <div className="relative w-full max-w-lg">
+                <FaSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search stories, topics, authors..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-12 pr-4 py-4 rounded-2xl border-2 focus:ring-4 focus:ring-blue-300 focus:border-blue-500 transition-all duration-300"
                   style={{ 
                     backgroundColor: colors.card, 
-                    borderColor: colors.border 
+                    borderColor: colors.border,
+                    color: colors.cardForeground 
                   }}
-                >
-                  <div className="flex gap-4 mb-6">
-                    <div className="w-12 h-12 bg-gray-300 rounded-full"></div>
-                    <div className="flex-1">
-                      <div className="h-5 bg-gray-300 rounded w-1/3 mb-2"></div>
-                      <div className="h-4 bg-gray-300 rounded w-1/2"></div>
-                    </div>
-                  </div>
-                  <div className="h-6 bg-gray-300 rounded mb-3"></div>
-                  <div className="h-4 bg-gray-300 rounded mb-4"></div>
-                  <div className="h-32 bg-gray-300 rounded mb-6"></div>
-                  <div className="flex space-x-2 mb-6">
-                    <div className="h-6 bg-gray-300 rounded w-16"></div>
-                    <div className="h-6 bg-gray-300 rounded w-20"></div>
-                  </div>
-                  <div className="flex justify-between pt-4 border-t border-gray-300">
-                    <div className="flex space-x-4">
-                      <div className="h-4 bg-gray-300 rounded w-8"></div>
-                      <div className="h-4 bg-gray-300 rounded w-8"></div>
-                    </div>
-                    <div className="h-4 bg-gray-300 rounded w-20"></div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : filteredBlogs.length > 0 ? (
-            <>
-              <div className="md:columns-2 lg:columns-3 gap-8 space-y-8">
-                {/* Featured blogs first */}
-                {featuredBlogs.map(blog => (
-                  <div key={`featured-${blog.$id}`} className="break-inside-avoid">
-                    <BlogCard blog={blog} featured />
-                  </div>
-                ))}
-                {/* Regular blogs */}
-                {filteredBlogs.map(blog => (
-                  <div key={blog.$id} className="break-inside-avoid">
-                    <BlogCard blog={blog} />
-                  </div>
-                ))}
+                />
               </div>
-              
-              {hasMore && (
-                <div className="text-center pt-8">
-                  <button
-                    onClick={() => {
-                      setPage(prev => prev + 1);
-                      fetchBlogs();
-                    }}
-                    disabled={loading}
-                    className="px-8 py-3 rounded-lg transition-colors disabled:opacity-50"
-                    style={{
-                      backgroundColor: colors.accent,
-                      color: colors.background
-                    }}
-                  >
-                    {loading ? 'Loading...' : 'Load More'}
-                  </button>
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="text-center py-12">
-              <div className="text-6xl opacity-20 mb-4">📝</div>
-              <h3 className="text-xl font-semibold mb-2" style={{ color: colors.foreground }}>
-                No stories found
-              </h3>
-              <p className="opacity-70" style={{ color: colors.foreground }}>
-                Try adjusting your search or filters
-              </p>
             </div>
-          )}
+          </div>
         </div>
 
-        {/* Write Story CTA */}
+        {/* Category Filter Section */}
+        <CategoryFilter
+          categories={categories}
+          activeCategory={selectedCategory}
+          onCategoryClick={setSelectedCategory}
+        />
+
+        {/* Active Filters */}
+        {(searchQuery || selectedCategory !== 'All') && (
+          <div className="flex flex-wrap gap-2 justify-center mt-6 mb-8 px-4 sm:px-6 lg:px-8">
+            <div className="max-w-7xl mx-auto flex flex-wrap gap-2 justify-center">
+              {searchQuery && (
+                <span className="px-4 py-2 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-full text-sm font-medium">
+                  Search: "{searchQuery}"
+                </span>
+              )}
+              {selectedCategory !== 'All' && (
+                <span className="px-4 py-2 bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-full text-sm font-medium">
+                  Category: {selectedCategory}
+                </span>
+              )}
+              <button
+                onClick={() => {
+                  setSearchQuery('');
+                  setSelectedCategory('All');
+                }}
+                className="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-full text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+              >
+                Clear All
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Content Section */}
+        <div className="px-4 sm:px-6 lg:px-8">
+          <div className="max-w-7xl mx-auto">
+            {/* Blog Grid */}
+            <div className="space-y-12">
+              {loading && blogs.length === 0 ? (
+                // Enhanced Loading Skeleton
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  {[...Array(6)].map((_, i) => (
+                    <div 
+                      key={i}
+                      className="overflow-hidden rounded-2xl border"
+                      style={{ 
+                        backgroundColor: colors.card, 
+                        borderColor: colors.border 
+                      }}
+                    >
+                      <div className="aspect-[16/10] bg-gray-300 dark:bg-gray-700"></div>
+                      <div className="p-6 space-y-4">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 bg-gray-300 dark:bg-gray-700 rounded-full"></div>
+                          <div className="flex-1 space-y-2">
+                            <div className="h-4 bg-gray-300 dark:bg-gray-700 rounded w-1/3"></div>
+                            <div className="h-3 bg-gray-300 dark:bg-gray-700 rounded w-1/2"></div>
+                          </div>
+                        </div>
+                        <div className="space-y-3">
+                          <div className="h-6 bg-gray-300 dark:bg-gray-700 rounded"></div>
+                          <div className="h-4 bg-gray-300 dark:bg-gray-700 rounded w-3/4"></div>
+                          <div className="h-16 bg-gray-300 dark:bg-gray-700 rounded"></div>
+                        </div>
+                        <div className="flex justify-between">
+                          <div className="flex space-x-4">
+                            <div className="h-4 bg-gray-300 dark:bg-gray-700 rounded w-8"></div>
+                            <div className="h-4 bg-gray-300 dark:bg-gray-700 rounded w-8"></div>
+                          </div>
+                          <div className="h-4 bg-gray-300 dark:bg-gray-700 rounded w-4"></div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (featuredBlogs.length > 0 || filteredBlogs.length > 0) ? (
+                <>
+                  {/* Featured Blogs Section */}
+                  {featuredBlogs.length > 0 && !searchQuery && selectedCategory === 'All' && (
+                    <div className="mb-16">
+                      <div className="flex items-center space-x-3 mb-8">
+                        <FaStar className="text-yellow-500 text-xl" />
+                        <h2 className="text-3xl font-bold bg-gradient-to-r from-yellow-500 to-orange-500 bg-clip-text text-transparent">
+                          Featured Stories
+                        </h2>
+                      </div>
+                      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 auto-rows-max">
+                        {featuredBlogs.map((blog, index) => (
+                          <div key={`featured-${blog.$id}`} className={index === 0 ? 'lg:col-span-2 lg:row-span-2' : ''}>
+                            <BlogCard blog={blog} featured={index === 0} />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Regular Blogs Section */}
+                  {filteredBlogs.length > 0 && (
+                    <div>
+                      <div className="flex items-center justify-between mb-8">
+                        <h2 className="text-3xl font-bold" style={{ color: colors.foreground }}>
+                          {searchQuery || selectedCategory !== 'All' ? 'Search Results' : 'All Stories'}
+                        </h2>
+                        <span className="text-sm opacity-60" style={{ color: colors.foreground }}>
+                          {filteredBlogs.length} {filteredBlogs.length === 1 ? 'story' : 'stories'} found
+                        </span>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                        {filteredBlogs.map(blog => (
+                          <BlogCard key={blog.$id} blog={blog} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {hasMore && !searchQuery && selectedCategory === 'All' && (
+                    <div className="text-center pt-12">
+                      <button
+                        onClick={() => {
+                          setPage(prev => prev + 1);
+                          fetchBlogs();
+                        }}
+                        disabled={loading}
+                        className="group px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-2xl hover:from-blue-600 hover:to-purple-700 transition-all duration-300 disabled:opacity-50 font-semibold shadow-lg hover:shadow-xl hover:scale-105"
+                      >
+                        <span className="flex items-center space-x-2">
+                          <span>{loading ? 'Loading More Stories...' : 'Load More Stories'}</span>
+                          {!loading && <FaPlus className="group-hover:rotate-180 transition-transform duration-300" />}
+                        </span>
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                // Enhanced Empty State
+                <div className="text-center py-20">
+                  <div className="w-32 h-32 mx-auto mb-8 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700 rounded-full flex items-center justify-center">
+                    <div className="text-6xl opacity-40">📝</div>
+                  </div>
+                  <h3 className="text-2xl font-bold mb-4" style={{ color: colors.foreground }}>
+                    {searchQuery || selectedCategory !== 'All' ? 'No stories match your search' : 'No stories found'}
+                  </h3>
+                  <p className="opacity-70 text-lg mb-8 max-w-md mx-auto" style={{ color: colors.foreground }}>
+                    {searchQuery || selectedCategory !== 'All' 
+                      ? 'Try adjusting your search terms or browse all categories'
+                      : 'Be the first to share your amazing story with the community'
+                    }
+                  </p>
+                  {searchQuery || selectedCategory !== 'All' ? (
+                    <button
+                      onClick={() => {
+                        setSearchQuery('');
+                        setSelectedCategory('All');
+                      }}
+                      className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:from-blue-600 hover:to-purple-700 transition-all duration-300 font-semibold shadow-lg"
+                    >
+                      Browse All Stories
+                    </button>
+                  ) : (
+                    <Link href="/create-blog">
+                      <button className="px-6 py-3 bg-gradient-to-r from-green-500 to-blue-600 text-white rounded-xl hover:from-green-600 hover:to-blue-700 transition-all duration-300 font-semibold shadow-lg">
+                        Write Your First Story
+                      </button>
+                    </Link>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Floating Action Button */}
         <div className="fixed bottom-8 right-8 z-50">
           <Link href="/create-blog">
             <button 
-              className="w-14 h-14 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center text-xl"
-              style={{
-                backgroundColor: colors.accent,
-                color: colors.background
-              }}
+              className="group w-16 h-16 bg-gradient-to-r from-green-500 to-blue-600 text-white rounded-full shadow-2xl hover:shadow-3xl transition-all duration-300 flex items-center justify-center text-2xl hover:scale-110"
+              title="Write a new story"
             >
-              ✏️
+              <FaPlus className="group-hover:rotate-180 transition-transform duration-300" />
             </button>
           </Link>
-        </div>
         </div>
       </div>
     </div>

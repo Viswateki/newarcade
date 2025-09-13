@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { blogService } from '@/lib/blogService_new';
 import UserBlogsSection from './UserBlogsSection';
+import DashboardMagicBento from '@/components/DashboardMagicBento';
 import { 
   FaTachometerAlt, 
   FaBlog, 
@@ -390,120 +391,24 @@ export default function DashboardContent() {
           />
         </div>
 
-        {/* Main Dashboard Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
-        {/* Quick Actions */}
-        <div>
-          <QuickActionsCard />
+        {/* Magic Bento Dashboard */}
+        <div className="mb-8">
+          <DashboardMagicBento
+            textAutoHide={true}
+            enableStars={true}
+            enableSpotlight={true}
+            enableBorderGlow={true}
+            enableTilt={true}
+            enableMagnetism={true}
+            clickEffect={true}
+            spotlightRadius={300}
+            particleCount={12}
+            glowColor="132, 0, 255"
+            stats={stats}
+            userBlogs={userBlogs}
+            loading={loading}
+          />
         </div>
-        
-        {/* Recent Activity */}
-        <div>
-          <RecentActivityCard userBlogs={userBlogs} />
-        </div>
-        
-        {/* Popular Content */}
-        <div>
-          <PopularContentCard userBlogs={userBlogs} />
-        </div>
-        
-        {/* Achievement Card */}
-        <div 
-          className="p-6 rounded-xl border transition-all duration-300"
-          style={{ 
-            backgroundColor: colors.card, 
-            borderColor: colors.border,
-            color: colors.cardForeground 
-          }}
-        >
-          <h3 className="text-lg font-semibold mb-4 flex items-center">
-            <FaAward className="w-5 h-5 mr-2" style={{ color: colors.accent }} />
-            Achievements
-          </h3>
-          <div className="space-y-3">
-            {stats.blogs > 0 && (
-              <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 rounded-full bg-yellow-100 flex items-center justify-center">
-                  <FaAward className="w-4 h-4 text-yellow-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium">First Blog Published</p>
-                  <p className="text-xs opacity-70">Content Creator</p>
-                </div>
-              </div>
-            )}
-            {stats.blogs >= 5 && (
-              <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                  <FaBlog className="w-4 h-4 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium">Prolific Writer</p>
-                  <p className="text-xs opacity-70">Published 5+ blogs</p>
-                </div>
-              </div>
-            )}
-            {stats.views >= 100 && (
-              <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
-                  <FaEye className="w-4 h-4 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium">Popular Content</p>
-                  <p className="text-xs opacity-70">100+ total views</p>
-                </div>
-              </div>
-            )}
-            {stats.blogs === 0 && (
-              <div className="text-center py-4">
-                <p className="text-sm opacity-70">Start writing to unlock achievements!</p>
-                <Link 
-                  href="/create-blog" 
-                  className="text-sm mt-2 inline-block"
-                  style={{ color: colors.accent }}
-                >
-                  Create your first blog →
-                </Link>
-              </div>
-            )}
-          </div>
-        </div>
-        
-        {/* Community Stats */}
-        <div 
-          className="lg:col-span-2 p-6 rounded-xl border transition-all duration-300"
-          style={{ 
-            backgroundColor: colors.card, 
-            borderColor: colors.border,
-            color: colors.cardForeground 
-          }}
-        >
-          <h3 className="text-lg font-semibold mb-4 flex items-center">
-            <FaChartLine className="w-5 h-5 mr-2" style={{ color: colors.accent }} />
-            Your Impact
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="text-center">
-              <div className="text-2xl font-bold" style={{ color: colors.accent }}>
-                {stats.views.toLocaleString()}
-              </div>
-              <p className="text-sm opacity-70">Total Blog Views</p>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold" style={{ color: colors.accent }}>
-                {stats.likes}
-              </div>
-              <p className="text-sm opacity-70">Total Likes</p>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold" style={{ color: colors.accent }}>
-                {userBlogs.length > 0 ? Math.round((stats.likes / Math.max(stats.views, 1)) * 100) : 0}%
-              </div>
-              <p className="text-sm opacity-70">Engagement Rate</p>
-            </div>
-          </div>
-        </div>
-      </div>
 
         {/* User's Blogs Section */}
         <div className="mt-8">

@@ -10,7 +10,7 @@ export default function HeroSection() {
 
   return (
     <section 
-      className="relative flex items-center justify-center w-full min-h-screen overflow-hidden transition-colors duration-300"
+      className="relative flex items-center justify-center w-full min-h-screen overflow-hidden transition-colors duration-300 pt-20"
       style={{ 
         backgroundColor: colors.background,
         color: colors.foreground 
@@ -22,16 +22,16 @@ export default function HeroSection() {
         style={{
           background: theme === 'dark' 
             ? 'linear-gradient(to bottom right, #0f1419, #1a1f29, #1e3a8a)'
-            : 'linear-gradient(to bottom right, #e2e8f0, #cbd5e1, #93c5fd)'
+            : 'linear-gradient(to bottom right, #f8fafc, #e2e8f0, #cbd5e1)'
         }}
       ></div>
       
       {/* Enhanced light effect from bottom for light theme */}
       {theme === 'light' && (
         <div 
-          className="absolute inset-0 opacity-60 transition-colors duration-300"
+          className="absolute inset-0 opacity-40 transition-colors duration-300"
           style={{
-            background: 'radial-gradient(ellipse 800px 400px at center bottom, rgba(147, 197, 253, 0.8) 0%, rgba(59, 130, 246, 0.4) 40%, transparent 70%)'
+            background: 'radial-gradient(ellipse 800px 400px at center bottom, rgba(147, 197, 253, 0.6) 0%, rgba(59, 130, 246, 0.3) 40%, transparent 70%)'
           }}
         ></div>
       )}

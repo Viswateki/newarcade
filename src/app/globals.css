@@ -33,9 +33,9 @@
 }
 
 .light {
-  --foreground-rgb: 26, 26, 26;
-  --background-start-rgb: 250, 251, 252;
-  --background-end-rgb: 250, 251, 252;
+  --foreground-rgb: 45, 55, 72;
+  --background-start-rgb: 248, 249, 250;
+  --background-end-rgb: 248, 249, 250;
   --color-beige: #f5f5dc;
   --color-beige-dark: #e6e6cd;
   --color-beige-text: #2c2c2c;
@@ -46,6 +46,16 @@
 .card-nav-container {
   position: absolute !important;
   z-index: 50 !important;
+}
+
+/* Hide scrollbar utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }
 
 /* Dashboard Animations */
@@ -389,6 +399,45 @@ header * {
   z-index: 2;
 }
 
+/* Ensure navigation trigger text is always visible in both themes.
+   These selectors target the html root class applied by ThemeProvider
+   and use !important to reliably override other utility styles.
+*/
+html.light .nav-trigger,
+header.html-light .nav-trigger,
+nav.html-light .nav-trigger {
+  color: #111827 !important; /* dark text for light theme */
+  opacity: 1 !important;
+}
+
+html.dark .nav-trigger,
+header.html-dark .nav-trigger,
+nav.html-dark .nav-trigger {
+  color: #f3f4f6 !important; /* light text for dark theme */
+  opacity: 1 !important;
+}
+
+/* Backwards-compatible selectors: also match when theme class is on :root (html) */
+:root.light .nav-trigger {
+  color: #111827 !important;
+  opacity: 1 !important;
+}
+
+:root.dark .nav-trigger {
+  color: #f3f4f6 !important;
+  opacity: 1 !important;
+}
+
+/* Ensure navigation triggers use theme-aware text color and override any text-white usages */
+header .nav-trigger,
+header .nav-trigger * {
+  color: var(--nav-text) !important;
+}
+
+/* Fallback variables if not already defined */
+:root.light { --nav-text: #111827; }
+:root.dark { --nav-text: #f3f4f6; }
+
 .dotted-background-white-corners > header {
   z-index: 99999 !important;
   position: relative !important;
@@ -439,6 +488,7 @@ header * {
   ring-offset: 2px;
 }
 
+
 /* Custom scrollbar for webkit browsers */
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
@@ -477,4 +527,199 @@ header * {
               radial-gradient(circle at 100% 0%, white 0%, transparent 50%),
               radial-gradient(circle at 0% 100%, white 0%, transparent 50%),
               radial-gradient(circle at 100% 100%, white 0%, transparent 50%);
+}
+
+/* Navigation Menu Animations */
+@keyframes animate-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes animate-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes slide-in-from-right-52 {
+  from {
+    transform: translateX(13rem);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes slide-in-from-left-52 {
+  from {
+    transform: translateX(-13rem);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes slide-out-to-right-52 {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(13rem);
+  }
+}
+
+@keyframes slide-out-to-left-52 {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-13rem);
+  }
+}
+
+@keyframes zoom-in-90 {
+  from {
+    transform: scale(0.9);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes zoom-out-95 {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(0.95);
+  }
+}
+
+/* Animation utility classes */
+.animate-in {
+  animation-name: animate-in;
+  animation-duration: 0.15s;
+  animation-timing-function: ease-out;
+  animation-fill-mode: forwards;
+}
+
+.animate-out {
+  animation-name: animate-out;
+  animation-duration: 0.15s;
+  animation-timing-function: ease-in;
+  animation-fill-mode: forwards;
+}
+
+.fade-in {
+  animation-name: fade-in;
+  animation-duration: 0.15s;
+  animation-timing-function: ease-out;
+}
+
+.fade-out {
+  animation-name: fade-out;
+  animation-duration: 0.15s;
+  animation-timing-function: ease-in;
+}
+
+.slide-in-from-right-52 {
+  animation-name: slide-in-from-right-52;
+  animation-duration: 0.15s;
+  animation-timing-function: ease-out;
+}
+
+.slide-in-from-left-52 {
+  animation-name: slide-in-from-left-52;
+  animation-duration: 0.15s;
+  animation-timing-function: ease-out;
+}
+
+.slide-out-to-right-52 {
+  animation-name: slide-out-to-right-52;
+  animation-duration: 0.15s;
+  animation-timing-function: ease-in;
+}
+
+.slide-out-to-left-52 {
+  animation-name: slide-out-to-left-52;
+  animation-duration: 0.15s;
+  animation-timing-function: ease-in;
+}
+
+.zoom-in-90 {
+  animation-name: zoom-in-90;
+  animation-duration: 0.15s;
+  animation-timing-function: ease-out;
+}
+
+.zoom-out-95 {
+  animation-name: zoom-out-95;
+  animation-duration: 0.15s;
+  animation-timing-function: ease-in;
+}
+
+/* Data attribute animations for Radix UI */
+[data-motion^="from-"]:where(.animate-in) {
+  animation-name: animate-in;
+}
+
+[data-motion^="to-"]:where(.animate-out) {
+  animation-name: animate-out;
+}
+
+[data-motion^="from-"]:where(.fade-in) {
+  animation-name: fade-in;
+}
+
+[data-motion^="to-"]:where(.fade-out) {
+  animation-name: fade-out;
+}
+
+[data-motion="from-end"]:where(.slide-in-from-right-52) {
+  animation-name: slide-in-from-right-52;
+}
+
+[data-motion="from-start"]:where(.slide-in-from-left-52) {
+  animation-name: slide-in-from-left-52;
+}
+
+[data-motion="to-end"]:where(.slide-out-to-right-52) {
+  animation-name: slide-out-to-right-52;
+}
+
+[data-motion="to-start"]:where(.slide-out-to-left-52) {
+  animation-name: slide-out-to-left-52;
+}
+
+[data-state="open"]:where(.zoom-in-90) {
+  animation-name: zoom-in-90;
+}
+
+[data-state="closed"]:where(.zoom-out-95) {
+  animation-name: zoom-out-95;
 }

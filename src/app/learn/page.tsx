@@ -1,8 +1,7 @@
 "use client";
 import React from 'react';
 import { useRouter } from 'next/navigation';
-import CardNav from '@/components/CardNav';
-import { navItems } from '../data';
+import NavigationWrapper from '@/components/NavigationWrapper';
 import { useTheme } from '@/contexts/ThemeContext';
 import { FiArrowRight, FiGlobe, FiUpload, FiServer, FiDatabase, FiSmartphone, FiCode, FiCloud, FiLayers, FiCheckCircle, FiInfo, FiBookOpen, FiArrowLeft } from 'react-icons/fi';
 
@@ -202,18 +201,11 @@ const LearnPage: React.FC = () => {
     return (
         <>
             {/* Navigation Header */}
-            <header style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 99999 }}>
-                <CardNav
-                    logo="/logo.svg"
-                    logoAlt="Company Logo"
-                    items={navItems}
-                    ease="power3.out"
-                />
-            </header>
+            <NavigationWrapper />
 
-            <div className={`min-h-screen transition-colors duration-300 ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50'}`}>
+            <div className={`min-h-screen transition-colors duration-300 pt-20 ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50'}`}>
                 {/* Header with navigation spacing */}
-                <div style={{ paddingTop: '80px' }}>
+                <div>
                     {/* Back Button */}
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
                         <button 

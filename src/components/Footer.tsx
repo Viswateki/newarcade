@@ -1,9 +1,14 @@
 "use client";
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
 
 const Footer: React.FC = () => {
   const { colors, theme } = useTheme();
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const footerNavs = [
     {
@@ -140,6 +145,7 @@ const Footer: React.FC = () => {
                   />
                 </svg>
                 <input
+                  key={isClient ? 'client' : 'server'}
                   type="email"
                   required
                   placeholder="Enter your email"
@@ -156,9 +162,11 @@ const Footer: React.FC = () => {
                   onBlur={(e) => {
                     e.target.style.borderColor = theme === 'dark' ? '#4b5563' : '#d1d5db';
                   }}
+                  suppressHydrationWarning
                 />
               </div>
               <button 
+                key={isClient ? 'client-btn' : 'server-btn'}
                 className="block w-auto py-3 px-4 font-medium text-sm text-center text-white rounded-lg shadow transition-all duration-300 hover:shadow-lg"
                 style={{
                   backgroundColor: colors.accent,
@@ -169,6 +177,7 @@ const Footer: React.FC = () => {
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = colors.accent;
                 }}
+                suppressHydrationWarning
               >
                 Subscribe
               </button>
@@ -188,7 +197,7 @@ const Footer: React.FC = () => {
                 <li key={idx}>
                   <a
                     href={el.href}
-                    className="duration-150 transition-colors duration-300 hover:opacity-70"
+                    className="transition-colors duration-300 hover:opacity-70"
                     style={{ color: theme === 'dark' ? '#9ca3af' : '#6b7280' }}
                   >
                     {el.name}

@@ -79,13 +79,22 @@ export default function Login() {
               Enter your email below to login to your account.
             </p>
           </div>
-          <Link 
-            href="/signup" 
-            className="text-sm hover:underline transition-colors duration-200"
-            style={{ color: colors.accent }}
-          >
-            Sign Up
-          </Link>
+          <div className="flex flex-col items-end space-y-2">
+            <Link 
+              href="/" 
+              className="text-sm hover:underline transition-colors duration-200"
+              style={{ color: colors.accent }}
+            >
+              ← Back to Home
+            </Link>
+            <Link 
+              href="/signup" 
+              className="text-sm hover:underline transition-colors duration-200"
+              style={{ color: colors.accent }}
+            >
+              Sign Up
+            </Link>
+          </div>
         </div>
 
         {/* Main Form Container */}

@@ -5,16 +5,16 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { FaSun, FaMoon } from 'react-icons/fa';
 
 export default function ThemeToggle() {
-  const { theme, toggleTheme } = useTheme();
+  const { theme, toggleTheme, colors } = useTheme();
 
   return (
     <button
       onClick={toggleTheme}
       className="p-2 rounded-lg border transition-all duration-300 hover:scale-105"
       style={{ 
-        backgroundColor: theme === 'dark' ? '#374151' : '#f3f4f6',
-        borderColor: theme === 'dark' ? '#4b5563' : '#d1d5db',
-        color: theme === 'dark' ? '#f9fafb' : '#1f2937'
+        backgroundColor: colors.muted,
+        borderColor: colors.border,
+        color: colors.foreground
       }}
       title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
     >

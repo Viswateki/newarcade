@@ -81,13 +81,22 @@ export default function Signup() {
               Enter your details below to create your account.
             </p>
           </div>
-          <Link 
-            href="/login" 
-            className="text-sm hover:underline transition-colors duration-200"
-            style={{ color: colors.accent }}
-          >
-            Sign In
-          </Link>
+          <div className="flex flex-col items-end space-y-2">
+            <Link 
+              href="/" 
+              className="text-sm hover:underline transition-colors duration-200"
+              style={{ color: colors.accent }}
+            >
+              ← Back to Home
+            </Link>
+            <Link 
+              href="/login" 
+              className="text-sm hover:underline transition-colors duration-200"
+              style={{ color: colors.accent }}
+            >
+              Sign In
+            </Link>
+          </div>
         </div>
 
         {/* Main Form Container */}

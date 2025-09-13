@@ -43,13 +43,13 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       };
     }
     return {
-      background: '#fafbfc', // Softer white background instead of pure white
-      foreground: '#1a1a1a', // Softer black instead of pure black
-      muted: '#f3f4f6',
+      background: '#f8f9fa', // Even softer off-white background
+      foreground: '#2d3748', // Softer dark gray instead of black
+      muted: '#f1f3f4',
       accent: '#00bcd4', // Match aiarcade brand color
-      border: '#e5e7eb',
-      card: '#fafbfc', // Softer white card
-      cardForeground: '#1a1a1a', // Softer black text
+      border: '#e2e8f0',
+      card: '#f7f8f9', // Very soft off-white card
+      cardForeground: '#374151', // Soft dark gray text
       beige: '#2c2c2c',
       beigeText: '#f5f5dc'
     };
