@@ -108,22 +108,6 @@ export default function CreateBlogPage() {
       return;
     }
 
-    // Validate required fields
-    if (!formData.title.trim()) {
-      alert('Please enter a blog title');
-      return;
-    }
-
-    if (!formData.content.trim()) {
-      alert('Please enter blog content');
-      return;
-    }
-
-    if (!formData.category) {
-      alert('Please select a category');
-      return;
-    }
-
     setIsLoading(true);
     
     try {
@@ -144,8 +128,8 @@ export default function CreateBlogPage() {
         likes: 0,
         comments_count: 0,
         bookmarks: 0,
-        rating: 0
-        // Remove slug generation from here as it's handled in the service
+        rating: 0,
+        slug: formData.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '')
       };
 
       if (!validateBlogData(blogData)) {
@@ -163,20 +147,7 @@ export default function CreateBlogPage() {
       }, 2000);
     } catch (error) {
       console.error('Error creating blog:', error);
-      let errorMessage = 'An unexpected error occurred. Please try again.';
-      
-      if (error instanceof Error) {
-        if (error.message.includes('already exists')) {
-          errorMessage = 'A blog with similar content already exists. Please try with different title or content.';
-        } else if (error.message.includes('network') || error.message.includes('connection')) {
-          errorMessage = 'Network error. Please check your connection and try again.';
-        } else if (error.message.includes('permission') || error.message.includes('unauthorized')) {
-          errorMessage = 'You do not have permission to create blogs. Please log in again.';
-        } else {
-          errorMessage = error.message;
-        }
-      }
-      
+      const errorMessage = error instanceof Error ? error.message : 'Please try again.';
       alert(`Error creating blog post: ${errorMessage}`);
     } finally {
       setIsLoading(false);
@@ -241,28 +212,19 @@ export default function CreateBlogPage() {
   };
 
   const insertFormatting = (before: string, after: string = '') => {
-    const textarea = contentRef.current || document.getElementById('content') as HTMLTextAreaElement;
-    if (!textarea) {
-      console.error('Content textarea not found');
-      return;
-    }
-
+    const textarea = document.getElementById('content') as HTMLTextAreaElement;
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
     const selectedText = textarea.value.substring(start, end);
     const newText = before + selectedText + after;
     
     const newValue = textarea.value.substring(0, start) + newText + textarea.value.substring(end);
-    
-    // Update the form data
     setFormData(prev => ({ ...prev, content: newValue }));
     
-    // Focus and set cursor position
     setTimeout(() => {
       textarea.focus();
-      const newCursorPos = start + before.length + selectedText.length + after.length;
-      textarea.setSelectionRange(newCursorPos, newCursorPos);
-    }, 10);
+      textarea.setSelectionRange(start + before.length, start + before.length + selectedText.length);
+    }, 0);
   };
 
   // Success Animation Component
@@ -452,31 +414,6 @@ export default function CreateBlogPage() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => insertFormatting('`', '`')}
-                        className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                        title="Inline Code"
-                      >
-                        <FaCode className="text-gray-600 dark:text-gray-400" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => insertFormatting('- ', '')}
-                        className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                        title="Bullet List"
-                      >
-                        <FaListUl className="text-gray-600 dark:text-gray-400" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => insertFormatting('1. ', '')}
-                        className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                        title="Numbered List"
-                      >
-                        <FaListOl className="text-gray-600 dark:text-gray-400" />
-                      </button>
-                      <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-2" />
-                      <button
-                        type="button"
                         onClick={() => fileInputRef.current?.click()}
                         className="flex items-center space-x-2 px-3 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all duration-200 text-sm"
                         disabled={imageUploading}
@@ -487,7 +424,7 @@ export default function CreateBlogPage() {
                     </div>
                     
                     <div className="text-sm text-gray-500">
-                      {wordCount} words • {readingTime} min read
+                      {wordCount} words
                     </div>
                   </div>
                 </div>

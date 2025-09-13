@@ -16,7 +16,7 @@ class BlogService {
     // Create a new blog post (Medium-like)
     async createBlog(blogData: Omit<Blog, '$id' | '$createdAt' | '$updatedAt'>): Promise<Blog> {
         try {
-            // Generate slug from title
+            // Generate unique slug from title
             const slug = this.generateSlug(blogData.title);
             
             // Calculate reading time
@@ -45,14 +45,31 @@ class BlogService {
                 }
             });
             
-            const response = await databases.createDocument(
-                DATABASE_ID,
-                BLOGS_COLLECTION_ID,
-                ID.unique(),
-                cleanBlogData
-            );
+            // Retry logic for potential race conditions
+            let retries = 3;
+            while (retries > 0) {
+                try {
+                    const response = await databases.createDocument(
+                        DATABASE_ID,
+                        BLOGS_COLLECTION_ID,
+                        ID.unique(),
+                        cleanBlogData
+                    );
+                    
+                    return response as unknown as Blog;
+                } catch (error: any) {
+                    if (error.message?.includes('already exists') && retries > 1) {
+                        // Generate new unique slug for retry
+                        cleanBlogData.slug = this.generateSlug(blogData.title);
+                        retries--;
+                        console.log(`Retrying blog creation with new slug: ${cleanBlogData.slug}`);
+                        continue;
+                    }
+                    throw error;
+                }
+            }
             
-            return response as unknown as Blog;
+            throw new Error('Failed to create blog after multiple attempts');
         } catch (error) {
             console.error('Error creating blog:', error);
             throw error;
@@ -450,12 +467,18 @@ class BlogService {
 
     // UTILITY METHODS
     private generateSlug(title: string): string {
-        return title
+        const baseSlug = title
             .toLowerCase()
             .replace(/[^a-z0-9 -]/g, '')
             .replace(/\s+/g, '-')
             .replace(/-+/g, '-')
             .replace(/^-|-$/g, '');
+        
+        // Add timestamp and random component to ensure uniqueness
+        const timestamp = Date.now();
+        const randomId = Math.random().toString(36).substring(2, 8);
+        
+        return `${baseSlug}-${timestamp}-${randomId}`;
     }
 
     private calculateReadingTime(content: string): number {

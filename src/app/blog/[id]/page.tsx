@@ -65,6 +65,16 @@ export default function BlogPostPage() {
     }
   }, [blog, user]);
 
+  // Calculate reading time
+  useEffect(() => {
+    if (blog) {
+      const wordsPerMinute = 200;
+      const words = blog.content.trim().split(/\s+/).length;
+      const time = Math.ceil(words / wordsPerMinute);
+      setEstimatedReadTime(time);
+    }
+  }, [blog]);
+
   // Reading progress tracking
   useEffect(() => {
     const handleScroll = () => {
@@ -87,6 +97,10 @@ export default function BlogPostPage() {
       setEstimatedReadTime(time);
     }
   }, [blog]);
+
+  const getImageUrl = (blog: Blog) => {
+    return blog.featured_image || null;
+  };
 
   const fetchBlogData = async () => {
     try {
@@ -301,11 +315,11 @@ export default function BlogPostPage() {
       </nav>
 
       {/* Hero Section */}
-      <div className="max-w-4xl mx-auto px-4 pt-12 pb-8">
+      <div className="max-w-4xl mx-auto px-4 pt-8 pb-4">
         {/* Category */}
-        <div className="mb-6">
+        <div className="mb-4">
           <span 
-            className="inline-block px-4 py-2 rounded-full text-sm font-medium"
+            className="inline-block px-3 py-1 rounded-full text-sm font-medium"
             style={{ backgroundColor: colors.accent + '20', color: colors.accent }}
           >
             {blog.category}
@@ -314,7 +328,7 @@ export default function BlogPostPage() {
 
         {/* Title */}
         <h1 
-          className="text-4xl md:text-5xl font-bold leading-tight mb-6"
+          className="text-3xl md:text-4xl lg:text-5xl font-bold leading-tight mb-4"
           style={{ color: colors.foreground }}
         >
           {blog.title}
@@ -323,7 +337,7 @@ export default function BlogPostPage() {
         {/* Subtitle */}
         {blog.subtitle && (
           <p 
-            className="text-xl md:text-2xl leading-relaxed mb-8 opacity-80"
+            className="text-lg md:text-xl leading-relaxed mb-6 opacity-80"
             style={{ color: colors.foreground }}
           >
             {blog.subtitle}
@@ -331,19 +345,19 @@ export default function BlogPostPage() {
         )}
 
         {/* Author & Meta Info */}
-        <div className="flex items-center justify-between mb-8 pb-8 border-b" style={{ borderColor: colors.border }}>
-          <div className="flex items-center space-x-4">
+        <div className="flex items-center justify-between mb-6 pb-6 border-b" style={{ borderColor: colors.border }}>
+          <div className="flex items-center space-x-3">
             <div 
-              className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg"
+              className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm"
               style={{ backgroundColor: colors.accent }}
             >
               {blog.author_name?.charAt(0)?.toUpperCase() || 'A'}
             </div>
             <div>
-              <h3 className="font-semibold" style={{ color: colors.foreground }}>
+              <h3 className="font-medium text-sm" style={{ color: colors.foreground }}>
                 {blog.author_name}
               </h3>
-              <div className="flex items-center space-x-4 text-sm opacity-70" style={{ color: colors.foreground }}>
+              <div className="flex items-center space-x-3 text-xs opacity-70" style={{ color: colors.foreground }}>
                 <span className="flex items-center space-x-1">
                   <FaCalendarAlt className="w-3 h-3" />
                   <span>{formatDate(blog.$createdAt)}</span>
@@ -410,17 +424,103 @@ export default function BlogPostPage() {
         </div>
       </div>
 
+      {/* Featured Image Section - Only show if blog has featured_image */}
+      {blog.featured_image && (
+        <div className="max-w-4xl mx-auto px-4 py-4">
+          <div className="relative rounded-xl overflow-hidden shadow-lg bg-gray-100 dark:bg-gray-800">
+            <img
+              src={blog.featured_image}
+              alt={blog.title}
+              className="w-full h-[300px] md:h-[400px] object-cover transition-transform duration-500 hover:scale-[1.02]"
+            />
+            
+            {/* Subtle Gradient Overlay */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300" />
+            
+            {/* Category Badge */}
+            <div className="absolute top-4 left-4">
+              <span 
+                className="px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-sm border"
+                style={{ 
+                  backgroundColor: colors.background + 'E6', 
+                  color: colors.accent,
+                  borderColor: colors.accent + '40'
+                }}
+              >
+                {blog.category}
+              </span>
+            </div>
+            
+            {/* Reading Time */}
+            <div className="absolute top-4 right-4">
+              <span 
+                className="px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-sm border flex items-center space-x-1"
+                style={{ 
+                  backgroundColor: colors.background + 'E6', 
+                  color: colors.foreground,
+                  borderColor: colors.border
+                }}
+              >
+                <FaClock className="w-3 h-3" />
+                <span>{estimatedReadTime} min read</span>
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Category Badge for blogs without images */}
+      {!blog.featured_image && (
+        <div className="max-w-4xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <span 
+              className="px-4 py-2 rounded-full text-sm font-medium border"
+              style={{ 
+                backgroundColor: colors.accent + '20', 
+                color: colors.accent,
+                borderColor: colors.accent + '40'
+              }}
+            >
+              {blog.category}
+            </span>
+            <span 
+              className="px-4 py-2 rounded-full text-sm font-medium border flex items-center space-x-2"
+              style={{ 
+                backgroundColor: colors.background, 
+                color: colors.foreground,
+                borderColor: colors.border
+              }}
+            >
+              <FaClock className="w-4 h-4" />
+              <span>{estimatedReadTime} min read</span>
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Article Content */}
       <div className="max-w-4xl mx-auto px-4 py-8">
         <article 
           className="prose prose-lg max-w-none mb-12"
-          style={{ color: colors.foreground }}
+          style={{ 
+            color: colors.foreground,
+            fontSize: `${fontSize}px`,
+            lineHeight: '1.7'
+          }}
         >
           <div className="space-y-6">
             {blog.content.split('\n').map((paragraph, index) => {
               if (!paragraph.trim()) return null;
               return (
-                <p key={index} className="text-lg leading-relaxed" style={{ color: colors.foreground }}>
+                <p 
+                  key={index} 
+                  className="text-justify leading-relaxed mb-6"
+                  style={{ 
+                    color: colors.foreground,
+                    fontSize: `${fontSize}px`,
+                    lineHeight: '1.7'
+                  }}
+                >
                   {paragraph}
                 </p>
               );

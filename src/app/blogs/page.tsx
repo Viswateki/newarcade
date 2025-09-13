@@ -201,13 +201,10 @@ export default function BlogsPage() {
   };
 
   const BlogCard = ({ blog, featured = false }: { blog: Blog; featured?: boolean }) => {
-    const defaultImage = `https://images.unsplash.com/photo-1557804506-669a67965ba0?w=800&h=400&fit=crop&crop=focalpoint&fp-y=.4&q=80`;
-    const imageUrl = blog.featured_image || defaultImage;
-    
     return (
       <article 
-        className={`group relative overflow-hidden bg-white dark:bg-gray-900 rounded-2xl border transition-all duration-500 hover:shadow-2xl hover:scale-[1.02] ${
-          featured ? 'lg:col-span-2 lg:row-span-2' : ''
+        className={`group relative overflow-hidden bg-white dark:bg-gray-900 rounded-2xl border transition-all duration-500 hover:shadow-2xl hover:scale-[1.02] flex flex-col ${
+          featured ? 'lg:col-span-2 lg:row-span-2' : 'h-[480px]'
         }`}
         style={{ 
           backgroundColor: colors.card, 
@@ -216,149 +213,180 @@ export default function BlogsPage() {
         }}
       >
         {/* Image Section */}
-        <div className={`relative overflow-hidden ${featured ? 'aspect-[16/9]' : 'aspect-[16/10]'}`}>
-          <img 
-            src={imageUrl} 
-            alt={blog.title}
-            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-            onError={(e) => {
-              (e.target as HTMLImageElement).src = defaultImage;
-            }}
-          />
-          
-          {/* Gradient Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-          
-          {/* Category Badge */}
-          <div className="absolute top-4 left-4">
-            <span className="px-3 py-1.5 bg-white/20 backdrop-blur-md rounded-full text-white text-sm font-medium border border-white/20">
-              {blog.category}
-            </span>
-          </div>
-
-          {/* Featured Badge */}
-          {featured && (
-            <div className="absolute top-4 right-4">
-              <div className="flex items-center space-x-1 px-3 py-1.5 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full text-white text-sm font-bold">
-                <FaStar className="text-xs" />
-                <span>Featured</span>
+        <Link href={`/blog/${blog.$id}`} className="block">
+          <div className={`relative overflow-hidden cursor-pointer ${featured ? 'aspect-[16/9]' : 'h-48'}`}>
+            {blog.featured_image ? (
+              <>
+                <img 
+                  src={blog.featured_image} 
+                  alt={blog.title}
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                />
+                {/* Gradient Overlay */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              </>
+            ) : (
+              /* Enhanced gradient placeholder for blogs without images */
+              <div className="w-full h-full bg-gradient-to-br from-blue-500/20 via-purple-500/20 to-pink-500/20 flex items-center justify-center relative">
+                <div className="text-center space-y-3">
+                  <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg">
+                    <span className="text-white font-bold text-2xl">
+                      {(blog.title || 'U').charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full shadow-md">
+                    <p className="text-white font-semibold text-sm">
+                      {blog.category || 'General'}
+                    </p>
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+            
+            {/* Category Badge - Only show on image cards, not on placeholder cards */}
+            {blog.featured_image && (
+              <div className="absolute top-4 left-4">
+                <span className="px-3 py-1.5 backdrop-blur-md rounded-full text-sm font-medium border bg-white/20 text-white border-white/20">
+                  {blog.category || 'General'}
+                </span>
+              </div>
+            )}
 
-          {/* Reading Time */}
-          <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-            <div className="flex items-center space-x-1 px-3 py-1.5 bg-black/50 backdrop-blur-md rounded-full text-white text-sm">
-              <FaClock className="text-xs" />
-              <span>{formatReadingTime(blog.reading_time)}</span>
-            </div>
+            {/* Featured Badge */}
+            {featured && (
+              <div className="absolute top-4 right-4">
+                <div className="flex items-center space-x-1 px-3 py-1.5 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full text-white text-sm font-bold">
+                  <FaStar className="text-xs" />
+                  <span>Featured</span>
+                </div>
+              </div>
+            )}
           </div>
-        </div>
+        </Link>
 
         {/* Content Section */}
-        <div className="p-6 space-y-4">
+        <div className="flex-1 p-4 flex flex-col relative">
           {/* Author Info */}
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-3 mb-4">
             <div className="relative">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm">
-                {blog.author_name.charAt(0).toUpperCase()}
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-xs">
+                {(blog.author_name || 'Anonymous').charAt(0).toUpperCase()}
               </div>
-              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-white dark:border-gray-900" />
+              <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 rounded-full border-2 border-white dark:border-gray-900" />
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-medium text-sm truncate" style={{ color: colors.cardForeground }}>
-                {blog.author_name}
+                {blog.author_name || 'Anonymous'}
               </p>
               <p className="text-xs opacity-60" style={{ color: colors.cardForeground }}>
-                {formatDate(blog.updated_at)}
+                {blog.updated_at ? formatDate(blog.updated_at) : 'Recently published'}
               </p>
             </div>
           </div>
 
-          {/* Title and Content */}
+          {/* Title and Subtitle */}
           <Link href={`/blog/${blog.$id}`}>
-            <div className="cursor-pointer space-y-2">
-              <h2 className={`font-bold leading-tight line-clamp-2 group-hover:text-blue-600 transition-colors duration-300 ${
-                featured ? 'text-2xl' : 'text-lg'
+            <div className="cursor-pointer mb-4 flex-1">
+              <h2 className={`font-bold leading-tight line-clamp-2 group-hover:text-blue-600 transition-colors duration-300 mb-2 ${
+                featured ? 'text-xl' : 'text-lg'
               }`} style={{ color: colors.cardForeground }}>
-                {blog.title}
+                {blog.title || 'Untitled Blog'}
               </h2>
               
-              {blog.subtitle && (
-                <h3 className="text-sm opacity-70 line-clamp-1" style={{ color: colors.cardForeground }}>
+              {blog.subtitle && blog.subtitle.trim() && (
+                <h3 className={`opacity-70 line-clamp-2 leading-relaxed ${
+                  featured ? 'text-base' : 'text-sm'
+                }`} style={{ color: colors.cardForeground }}>
                   {blog.subtitle}
                 </h3>
               )}
-              
-              <p className={`opacity-70 leading-relaxed line-clamp-3 ${
-                featured ? 'text-base' : 'text-sm'
-              }`} style={{ color: colors.cardForeground }}>
-                {blog.excerpt}
-              </p>
+
+              {/* Content Preview */}
+              {(blog.excerpt || blog.content) && (
+                <div className={`opacity-60 line-clamp-2 leading-relaxed mt-2 ${
+                  featured ? 'text-sm' : 'text-xs'
+                }`} style={{ color: colors.cardForeground }}>
+                  {blog.excerpt || blog.content.replace(/<[^>]*>/g, '').substring(0, 120) + '...'}
+                </div>
+              )}
             </div>
           </Link>
 
           {/* Tags */}
-          {formatTags(blog.tags).length > 0 && (
-            <div className="flex items-center space-x-2">
-              <FaTags className="text-xs opacity-40" style={{ color: colors.cardForeground }} />
-              <div className="flex flex-wrap gap-1">
-                {formatTags(blog.tags).slice(0, 2).map((tag: string) => (
+          <div className="mb-4">
+            {blog.tags && formatTags(blog.tags).length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {formatTags(blog.tags).slice(0, 3).map((tag: string) => (
                   <span
                     key={tag}
-                    className="px-2 py-1 rounded-md text-xs font-medium transition-colors"
+                    className="px-2 py-1 rounded-full text-xs font-medium transition-colors"
                     style={{ 
-                      backgroundColor: colors.background,
-                      color: colors.cardForeground,
-                      border: `1px solid ${colors.border}`
+                      backgroundColor: colors.accent + '20',
+                      color: colors.accent,
+                      border: `1px solid ${colors.accent}40`
                     }}
                   >
                     #{tag}
                   </span>
                 ))}
-                {formatTags(blog.tags).length > 2 && (
-                  <span className="text-xs opacity-50" style={{ color: colors.cardForeground }}>
-                    +{formatTags(blog.tags).length - 2}
+                {formatTags(blog.tags).length > 3 && (
+                  <span className="text-xs opacity-50 px-2 py-1" style={{ color: colors.cardForeground }}>
+                    +{formatTags(blog.tags).length - 3} more
                   </span>
                 )}
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                <span
+                  className="px-2 py-1 rounded-full text-xs font-medium"
+                  style={{ 
+                    backgroundColor: colors.accent + '20',
+                    color: colors.accent,
+                    border: `1px solid ${colors.accent}40`
+                  }}
+                >
+                  #{blog.category || 'General'}
+                </span>
+              </div>
+            )}
+          </div>
 
-          {/* Stats and Actions */}
-          <div className="flex items-center justify-between pt-4 border-t" style={{ borderColor: colors.border }}>
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => handleLike(blog.$id!)}
-                className="group/btn flex items-center space-x-1 text-xs opacity-60 hover:opacity-100 hover:text-red-500 transition-all duration-300"
-                style={{ color: colors.cardForeground }}
-              >
-                <FaHeart className="group-hover/btn:scale-125 transition-transform duration-300" />
-                <span>{blog.likes}</span>
-              </button>
-              
-              <Link href={`/blog/${blog.$id}#comments`}>
-                <div className="group/btn flex items-center space-x-1 text-xs opacity-60 hover:opacity-100 hover:text-blue-500 transition-all duration-300 cursor-pointer"
+          {/* Like, Bookmark and Other Stats - Fixed at bottom */}
+          <div className="absolute bottom-4 left-4 right-4">
+            <div className="flex items-center justify-between pt-3 border-t" style={{ borderColor: colors.border }}>
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={() => handleLike(blog.$id!)}
+                  className="group/btn flex items-center space-x-1 text-sm opacity-70 hover:opacity-100 hover:text-red-500 transition-all duration-300"
                   style={{ color: colors.cardForeground }}
                 >
-                  <FaComment className="group-hover/btn:scale-125 transition-transform duration-300" />
-                  <span>{blog.comments_count}</span>
+                  <FaHeart className="group-hover/btn:scale-125 transition-transform duration-300" />
+                  <span>{blog.likes || 0}</span>
+                </button>
+                
+                <Link href={`/blog/${blog.$id}#comments`}>
+                  <div className="group/btn flex items-center space-x-1 text-sm opacity-70 hover:opacity-100 hover:text-blue-500 transition-all duration-300 cursor-pointer"
+                    style={{ color: colors.cardForeground }}
+                  >
+                    <FaComment className="group-hover/btn:scale-125 transition-transform duration-300" />
+                    <span>{blog.comments_count || 0}</span>
+                  </div>
+                </Link>
+                
+                <div className="flex items-center space-x-1 text-sm opacity-70" style={{ color: colors.cardForeground }}>
+                  <FaEye />
+                  <span>{blog.views || 0}</span>
                 </div>
-              </Link>
-              
-              <div className="flex items-center space-x-1 text-xs opacity-60" style={{ color: colors.cardForeground }}>
-                <FaEye />
-                <span>{blog.views}</span>
               </div>
+              
+              <button
+                onClick={() => handleBookmark(blog.$id!)}
+                className="opacity-70 hover:opacity-100 hover:text-yellow-500 transition-all duration-300 hover:scale-125"
+                style={{ color: colors.cardForeground }}
+              >
+                <FaBookmark className="text-sm" />
+              </button>
             </div>
-            
-            <button
-              onClick={() => handleBookmark(blog.$id!)}
-              className="opacity-60 hover:opacity-100 hover:text-yellow-500 transition-all duration-300 hover:scale-125"
-              style={{ color: colors.cardForeground }}
-            >
-              <FaBookmark className="text-sm" />
-            </button>
           </div>
         </div>
 
@@ -448,11 +476,11 @@ export default function BlogsPage() {
             <div className="space-y-12">
               {loading && blogs.length === 0 ? (
                 // Enhanced Loading Skeleton
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 auto-rows-fr">
                   {[...Array(6)].map((_, i) => (
                     <div 
                       key={i}
-                      className="overflow-hidden rounded-2xl border"
+                      className="overflow-hidden rounded-2xl border h-[420px]"
                       style={{ 
                         backgroundColor: colors.card, 
                         borderColor: colors.border 
@@ -516,7 +544,7 @@ export default function BlogsPage() {
                         </span>
                       </div>
                       
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 auto-rows-fr">
                         {filteredBlogs.map(blog => (
                           <BlogCard key={blog.$id} blog={blog} />
                         ))}

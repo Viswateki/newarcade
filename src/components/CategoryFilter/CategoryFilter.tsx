@@ -41,8 +41,11 @@ const CategoryFilter = ({
 
   return (
     <div 
-      className="sticky top-14 w-full h-14 z-40"
-      style={{ backgroundColor: colors.background }}
+      className="w-full h-14 border-b"
+      style={{ 
+        backgroundColor: colors.background,
+        borderColor: colors.border 
+      }}
     >
       <div className="relative flex items-center h-full max-w-4xl mx-auto px-6">
         {/* Left fade and scroll button */}
