@@ -20,7 +20,8 @@ const FaqsCard: React.FC<FaqsCardProps> = ({ faqsList, idx }) => {
 
   const handleOpenAnswer = () => {
     if (answerElRef.current) {
-      const answerElH = answerElRef.current.childNodes[0].offsetHeight;
+      const firstChild = answerElRef.current.childNodes[0] as HTMLElement;
+      const answerElH = firstChild.offsetHeight;
       setState(!state);
       setAnswerH(`${answerElH + 20}px`);
     }

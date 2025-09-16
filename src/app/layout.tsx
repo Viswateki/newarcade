@@ -3,7 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { ClientThemeProvider } from "@/components/ClientThemeProvider";
 import { AuthProvider } from "@/contexts/AuthContext";
-import TekiDropdown from "@/components/TekiDropdown";
+import NavigationWrapper from "@/components/NavigationWrapper";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -22,7 +22,7 @@ export default function RootLayout({
       <body className={`${inter.className} antialiased transition-colors duration-300`}>
         <ClientThemeProvider>
           <AuthProvider>
-            <TekiDropdown />
+            <NavigationWrapper />
             {children}
           </AuthProvider>
         </ClientThemeProvider>

@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { useState } from "react"
+import Link from "next/link"
 import {
   BarChart3,
   BookOpen,
@@ -11,8 +12,11 @@ import {
   User2,
   ChevronDown,
   ChevronRight,
+  ArrowLeft,
   Star,
   Users,
+  Plus,
+  Home,
 } from "lucide-react"
 
 import {
@@ -27,43 +31,29 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarMenuSub,
-  SidebarMenuSubButton,
   SidebarMenuSubItem,
+  SidebarMenuSubButton,
+  SidebarSeparator,
 } from "@/components/ui/sidebar"
 import { useAuth } from "@/contexts/AuthContext"
 
-// TypeScript interfaces
-interface SubItem {
-  title: string;
-  url: string;
-}
-
-interface NavigationItem {
-  title: string;
-  url?: string;
-  icon?: React.ComponentType<{ className?: string }>;
-  isExpandable?: boolean;
-  subItems?: SubItem[];
-}
-
-interface NavigationData {
-  main: NavigationItem[];
-  secondary: NavigationItem[];
-}
-
 // Navigation items matching the design
-const navigationData: NavigationData = {
+const navigationData = {
   main: [
+    {
+      title: "Dashboard",
+      url: "/dashboard",
+      icon: Home,
+    },
     {
       title: "Analytics",
       url: "/dashboard/analytics",
       icon: BarChart3,
     },
     {
-      title: "tools",
+      title: "Tools",
       icon: Wrench,
-      isExpandable: true,
-      subItems: [
+      items: [
         {
           title: "Favorite tools",
           url: "/tools/favorites",
@@ -71,6 +61,10 @@ const navigationData: NavigationData = {
         {
           title: "Your tools",
           url: "/tools/yours",
+        },
+        {
+          title: "Submit Tool",
+          url: "/submit-tool",
         },
       ],
     },
@@ -82,14 +76,13 @@ const navigationData: NavigationData = {
     {
       title: "Learn",
       icon: BookOpen,
-      isExpandable: true,
-      subItems: [
+      items: [
         {
-          title: "how to create your tool",
+          title: "How to create your tool",
           url: "/learn/create-tool",
         },
         {
-          title: "how to deploy Your tool",
+          title: "How to deploy your tool",
           url: "/learn/deploy-tool",
         },
         {
@@ -99,152 +92,133 @@ const navigationData: NavigationData = {
       ],
     },
   ],
-  secondary: [
-    {
-      title: "Profile",
-      url: "/dashboard/profile",
-      icon: User2,
-    },
-    {
-      title: "Settings",
-      url: "/dashboard/settings",
-      icon: Settings,
-    },
-  ],
 }
 
-interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
-  onNavigate?: (route: string) => void;
-}
-
-export function AppSidebar({ onNavigate, ...props }: AppSidebarProps) {
+export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user } = useAuth();
-  const [expandedSections, setExpandedSections] = useState<string[]>([]);
+  const [openItems, setOpenItems] = useState<string[]>([]);
 
-  const toggleSection = (sectionTitle: string) => {
-    setExpandedSections(prev =>
-      prev.includes(sectionTitle)
-        ? prev.filter(title => title !== sectionTitle)
-        : [...prev, sectionTitle]
+  const toggleItem = (title: string) => {
+    setOpenItems(prev => 
+      prev.includes(title) 
+        ? prev.filter(item => item !== title)
+        : [...prev, title]
     );
-  };
-
-  const handleNavigation = (url: string) => {
-    if (onNavigate) {
-      // Extract the route from the URL for internal navigation
-      const route = url.replace('/dashboard/', '').replace('/', '');
-      onNavigate(route || 'dashboard');
-    }
-  };
-
-  const renderIcon = (IconComponent?: React.ComponentType<{ className?: string }>) => {
-    if (!IconComponent) return null;
-    return <IconComponent className="size-4" />;
   };
 
   return (
     <Sidebar variant="inset" {...props}>
-      <SidebarHeader className="p-4">
-        {/* Back button */}
-        <SidebarMenuButton size="sm" className="mb-4 justify-start" asChild>
-          <a href="/" className="flex items-center gap-2">
-            <ArrowLeft className="size-4" />
-            <span>Back to Home</span>
-          </a>
-        </SidebarMenuButton>
+      <SidebarHeader>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton size="lg" asChild>
+              <Link href="/">
+                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                  <Home className="size-4" />
+                </div>
+                <div className="grid flex-1 text-left text-sm leading-tight">
+                  <span className="truncate font-semibold">NewArcade</span>
+                  <span className="truncate text-xs">Dashboard</span>
+                </div>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarHeader>
 
-      <SidebarContent className="px-4">
-        {/* Main navigation items */}
+      <SidebarContent>
         <SidebarGroup>
+          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarMenu>
-            {navigationData.main.map((item) => (
-              <div key={item.title}>
-                <SidebarMenuItem>
-                  {item.isExpandable ? (
-                    <SidebarMenuButton
-                      onClick={() => toggleSection(item.title)}
-                      className="w-full justify-between"
-                    >
-                      <div className="flex items-center gap-2">
-                        {renderIcon(item.icon)}
-                        <span className="capitalize">{item.title}</span>
-                      </div>
-                      {expandedSections.includes(item.title) ? (
-                        <ChevronDown className="size-4" />
-                      ) : (
-                        <ChevronRight className="size-4" />
-                      )}
-                    </SidebarMenuButton>
-                  ) : (
+            {navigationData.main.map((item) => {
+              if (item.items) {
+                const isOpen = openItems.includes(item.title);
+                return (
+                  <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton 
-                      onClick={() => item.url && handleNavigation(item.url)}
-                      className="cursor-pointer"
+                      tooltip={item.title}
+                      onClick={() => toggleItem(item.title)}
                     >
-                      {renderIcon(item.icon)}
-                      <span className="capitalize">{item.title}</span>
+                      {item.icon && <item.icon />}
+                      <span>{item.title}</span>
+                      <ChevronRight className={`ml-auto transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} />
                     </SidebarMenuButton>
-                  )}
-                </SidebarMenuItem>
+                    {isOpen && (
+                      <SidebarMenuSub>
+                        {item.items.map((subItem) => (
+                          <SidebarMenuSubItem key={subItem.title}>
+                            <SidebarMenuSubButton asChild>
+                              <Link href={subItem.url}>
+                                <span>{subItem.title}</span>
+                              </Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        ))}
+                      </SidebarMenuSub>
+                    )}
+                  </SidebarMenuItem>
+                )
+              }
 
-                {/* Submenu items */}
-                {item.isExpandable && expandedSections.includes(item.title) && (
-                  <div className="ml-6 mt-1 space-y-1">
-                    {item.subItems?.map((subItem) => (
-                      <SidebarMenuItem key={subItem.title}>
-                        <SidebarMenuButton 
-                          onClick={() => handleNavigation(subItem.url)}
-                          size="sm"
-                          className="cursor-pointer"
-                        >
-                          <span className="text-sm text-muted-foreground">
-                            {subItem.title}
-                          </span>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
+              return (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton tooltip={item.title} asChild>
+                    <Link href={item.url!}>
+                      {item.icon && <item.icon />}
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )
+            })}
           </SidebarMenu>
         </SidebarGroup>
 
-        {/* Secondary navigation */}
-        <SidebarGroup className="mt-8">
+        <SidebarSeparator />
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Account</SidebarGroupLabel>
           <SidebarMenu>
-            {navigationData.secondary.map((item) => (
-              <SidebarMenuItem key={item.title}>
-                <SidebarMenuButton 
-                  onClick={() => item.url && handleNavigation(item.url)}
-                  className="cursor-pointer"
-                >
-                  {renderIcon(item.icon)}
-                  <span className="capitalize">{item.title}</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
+            <SidebarMenuItem>
+              <SidebarMenuButton tooltip="Profile" asChild>
+                <Link href="/dashboard/profile">
+                  <User2 />
+                  <span>Profile</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton tooltip="Settings" asChild>
+                <Link href="/dashboard/settings">
+                  <Settings />
+                  <span>Settings</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-4">
-        {/* User profile section */}
-        {user && (
-          <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500 text-white text-sm font-medium">
-              T
-            </div>
-            <div className="flex flex-col min-w-0">
-              <span className="text-sm font-medium truncate">
-                Teki Viswagna
-              </span>
-              <span className="text-xs text-muted-foreground truncate">
-                tekiviswagna@gmail.com
-              </span>
-            </div>
-          </div>
-        )}
+      <SidebarFooter>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton size="lg" asChild>
+              <Link href="/dashboard/profile">
+                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                  <User2 className="size-4" />
+                </div>
+                <div className="grid flex-1 text-left text-sm leading-tight">
+                  <span className="truncate font-semibold">
+                    {user?.name || "Teki Viswagna"}
+                  </span>
+                  <span className="truncate text-xs">
+                    {user?.email || "tekiviswagna@gmail.com"}
+                  </span>
+                </div>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarFooter>
     </Sidebar>
   )

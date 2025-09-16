@@ -1,301 +1,165 @@
 'use client';
 
 import React from 'react';
-import { BarChart3, FileText, Wrench, BookOpen, User2, Settings } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { BarChart3, Users, FileText, Star, TrendingUp, Activity } from 'lucide-react';
 
-interface DashboardContentProps {
-  activeUrl: string;
-}
+const DashboardContent = () => {
+  const stats = [
+    {
+      title: "Total Views",
+      value: "12,345",
+      description: "+20.1% from last month",
+      icon: BarChart3,
+      trend: "up"
+    },
+    {
+      title: "Active Users",
+      value: "2,350",
+      description: "+180.1% from last month",
+      icon: Users,
+      trend: "up"
+    },
+    {
+      title: "Blog Posts",
+      value: "45",
+      description: "+19% from last month",
+      icon: FileText,
+      trend: "up"
+    },
+    {
+      title: "Favorites",
+      value: "573",
+      description: "+7% from last month",
+      icon: Star,
+      trend: "up"
+    },
+  ];
 
-export function DashboardContent({ activeUrl }: DashboardContentProps) {
-  const renderContent = () => {
-    switch (activeUrl) {
-      case '/dashboard/analytics':
-        return (
-          <div className="min-h-screen bg-slate-900 text-white">
-            {/* Header */}
-            <div className="bg-slate-800 p-6 border-b border-slate-700">
-              <div className="flex items-center gap-3">
-                <BarChart3 className="size-6 text-blue-400" />
-                <h1 className="text-2xl font-bold">Analytics Dashboard</h1>
-              </div>
-            </div>
+  const recentActivity = [
+    { action: "New blog post published", time: "2 hours ago", type: "blog" },
+    { action: "Tool submitted for review", time: "4 hours ago", type: "tool" },
+    { action: "Profile updated", time: "1 day ago", type: "profile" },
+    { action: "New follower gained", time: "2 days ago", type: "social" },
+  ];
 
-            {/* Content */}
-            <div className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Total Visitors Card */}
-                <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
-                  <h3 className="text-sm text-slate-400 mb-2">Total Visitors</h3>
-                  <p className="text-3xl font-bold text-blue-400">12,543</p>
-                </div>
+  return (
+    <div className="space-y-6">
+      {/* Welcome Section */}
+      <div className="space-y-2">
+        <h2 className="text-3xl font-bold tracking-tight">Welcome back!</h2>
+        <p className="text-muted-foreground">
+          Here's what's happening with your content and tools today.
+        </p>
+      </div>
 
-                {/* Page Views Card */}
-                <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
-                  <h3 className="text-sm text-slate-400 mb-2">Page Views</h3>
-                  <p className="text-3xl font-bold text-green-400">45,123</p>
-                </div>
+      {/* Stats Grid */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {stats.map((stat, index) => (
+          <Card key={index}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                {stat.title}
+              </CardTitle>
+              <stat.icon className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stat.value}</div>
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <TrendingUp className="h-3 w-3 text-green-500" />
+                {stat.description}
+              </p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
 
-                {/* Bounce Rate Card */}
-                <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
-                  <h3 className="text-sm text-slate-400 mb-2">Bounce Rate</h3>
-                  <p className="text-3xl font-bold text-orange-400">32%</p>
-                </div>
+      {/* Main Content Grid */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+        {/* Chart Card */}
+        <Card className="col-span-4">
+          <CardHeader>
+            <CardTitle>Analytics Overview</CardTitle>
+            <CardDescription>
+              Your performance metrics for the last 30 days.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pl-2">
+            <div className="h-[200px] flex items-center justify-center bg-muted/50 rounded-lg">
+              <div className="text-center text-muted-foreground">
+                <BarChart3 className="h-12 w-12 mx-auto mb-2" />
+                <p>Chart visualization would go here</p>
               </div>
             </div>
-          </div>
-        );
+          </CardContent>
+        </Card>
 
-      case '/tools/favorites':
-        return (
-          <div className="min-h-screen bg-slate-900 text-white">
-            <div className="bg-slate-800 p-6 border-b border-slate-700">
-              <div className="flex items-center gap-3">
-                <Wrench className="size-6 text-purple-400" />
-                <h1 className="text-2xl font-bold">Favorite Tools</h1>
-              </div>
-            </div>
-            <div className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
-                  <h3 className="text-xl font-semibold mb-2">Code Formatter</h3>
-                  <p className="text-slate-400">Format your code with ease</p>
-                </div>
-                <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
-                  <h3 className="text-xl font-semibold mb-2">Color Picker</h3>
-                  <p className="text-slate-400">Pick colors for your designs</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-
-      case '/tools/yours':
-        return (
-          <div className="min-h-screen bg-slate-900 text-white">
-            <div className="bg-slate-800 p-6 border-b border-slate-700">
-              <div className="flex items-center gap-3">
-                <Wrench className="size-6 text-green-400" />
-                <h1 className="text-2xl font-bold">Your Tools</h1>
-              </div>
-            </div>
-            <div className="p-6">
-              <div className="text-center py-20">
-                <p className="text-lg text-slate-400 mb-4">You haven't created any tools yet.</p>
-                <button className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                  Create Your First Tool
-                </button>
-              </div>
-            </div>
-          </div>
-        );
-
-      case '/blogs':
-        return (
-          <div className="min-h-screen bg-slate-900 text-white">
-            <div className="bg-slate-800 p-6 border-b border-slate-700">
-              <div className="flex items-center gap-3">
-                <FileText className="size-6 text-red-400" />
-                <h1 className="text-2xl font-bold">Blogs</h1>
-              </div>
-            </div>
-            <div className="p-6 space-y-4">
-              <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
-                <h3 className="text-xl font-semibold mb-2">Getting Started with Web Development</h3>
-                <p className="text-slate-400 mb-2">Learn the basics of web development...</p>
-                <span className="text-sm text-slate-500">Published 2 days ago</span>
-              </div>
-              <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
-                <h3 className="text-xl font-semibold mb-2">Advanced React Patterns</h3>
-                <p className="text-slate-400 mb-2">Explore advanced patterns in React...</p>
-                <span className="text-sm text-slate-500">Published 1 week ago</span>
-              </div>
-            </div>
-          </div>
-        );
-
-      case '/learn/create-tool':
-        return (
-          <div className="min-h-screen bg-slate-900 text-white">
-            <div className="bg-slate-800 p-6 border-b border-slate-700">
-              <div className="flex items-center gap-3">
-                <BookOpen className="size-6 text-indigo-400" />
-                <h1 className="text-2xl font-bold">How to Create Your Tool</h1>
-              </div>
-            </div>
-            <div className="p-6">
-              <div className="max-w-4xl mx-auto space-y-6">
-                <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
-                  <h2 className="text-xl font-semibold mb-3">Step 1: Plan Your Tool</h2>
-                  <p className="text-slate-400">Start by defining what your tool will do and who will use it.</p>
-                </div>
-                <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
-                  <h2 className="text-xl font-semibold mb-3">Step 2: Design the Interface</h2>
-                  <p className="text-slate-400">Create wireframes and mockups for your tool's user interface.</p>
-                </div>
-                <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
-                  <h2 className="text-xl font-semibold mb-3">Step 3: Develop the Functionality</h2>
-                  <p className="text-slate-400">Write the code that makes your tool work.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-
-      case '/learn/deploy-tool':
-        return (
-          <div className="min-h-screen bg-slate-900 text-white">
-            <div className="bg-slate-800 p-6 border-b border-slate-700">
-              <div className="flex items-center gap-3">
-                <BookOpen className="size-6 text-teal-400" />
-                <h1 className="text-2xl font-bold">How to Deploy Your Tool</h1>
-              </div>
-            </div>
-            <div className="p-6">
-              <div className="max-w-4xl mx-auto space-y-6">
-                <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
-                  <h2 className="text-xl font-semibold mb-3">Deployment Options</h2>
-                  <p className="text-slate-400">Choose from various deployment platforms like Vercel, Netlify, or AWS.</p>
-                </div>
-                <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
-                  <h2 className="text-xl font-semibold mb-3">Configuration</h2>
-                  <p className="text-slate-400">Set up your environment variables and build settings.</p>
-                </div>
-                <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
-                  <h2 className="text-xl font-semibold mb-3">Go Live</h2>
-                  <p className="text-slate-400">Deploy your tool and make it available to users.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-
-      case '/learn/submit-tools':
-        return (
-          <div className="min-h-screen bg-slate-900 text-white">
-            <div className="bg-slate-800 p-6 border-b border-slate-700">
-              <div className="flex items-center gap-3">
-                <BookOpen className="size-6 text-pink-400" />
-                <h1 className="text-2xl font-bold">How to Submit Tools</h1>
-              </div>
-            </div>
-            <div className="p-6">
-              <div className="max-w-4xl mx-auto space-y-6">
-                <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
-                  <h2 className="text-xl font-semibold mb-3">Submission Guidelines</h2>
-                  <p className="text-slate-400">Follow our guidelines to ensure your tool meets quality standards.</p>
-                </div>
-                <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
-                  <h2 className="text-xl font-semibold mb-3">Review Process</h2>
-                  <p className="text-slate-400">Our team will review your tool within 24-48 hours.</p>
-                </div>
-                <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
-                  <h2 className="text-xl font-semibold mb-3">Publication</h2>
-                  <p className="text-slate-400">Once approved, your tool will be featured in our marketplace.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-
-      case '/dashboard/profile':
-        return (
-          <div className="min-h-screen bg-slate-900 text-white">
-            <div className="bg-slate-800 p-6 border-b border-slate-700">
-              <div className="flex items-center gap-3">
-                <User2 className="size-6 text-amber-400" />
-                <h1 className="text-2xl font-bold">Profile</h1>
-              </div>
-            </div>
-            <div className="p-6">
-              <div className="max-w-2xl mx-auto">
-                <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
-                  <div className="flex items-center gap-4 mb-6">
-                    <div className="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
-                      T
-                    </div>
-                    <div>
-                      <h2 className="text-2xl font-bold">Teki Viswagna</h2>
-                      <p className="text-slate-400">tekiviswagna@gmail.com</p>
-                    </div>
+        {/* Recent Activity */}
+        <Card className="col-span-3">
+          <CardHeader>
+            <CardTitle>Recent Activity</CardTitle>
+            <CardDescription>
+              Your latest actions and updates.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {recentActivity.map((activity, index) => (
+                <div key={index} className="flex items-start space-x-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
+                    <Activity className="h-4 w-4" />
                   </div>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium mb-2 text-slate-300">Full Name</label>
-                      <input type="text" value="Teki Viswagna" className="w-full p-3 bg-slate-700 border border-slate-600 rounded-lg text-white" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-2 text-slate-300">Email</label>
-                      <input type="email" value="tekiviswagna@gmail.com" className="w-full p-3 bg-slate-700 border border-slate-600 rounded-lg text-white" />
-                    </div>
-                    <button className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                      Save Changes
-                    </button>
+                  <div className="space-y-1 flex-1">
+                    <p className="text-sm font-medium leading-none">
+                      {activity.action}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {activity.time}
+                    </p>
                   </div>
                 </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Quick Actions */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Quick Actions</CardTitle>
+          <CardDescription>
+            Common tasks and shortcuts to help you get things done.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors">
+              <FileText className="h-8 w-8 text-blue-500" />
+              <div>
+                <p className="font-medium">Create New Blog</p>
+                <p className="text-sm text-muted-foreground">Start writing your next post</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors">
+              <Users className="h-8 w-8 text-green-500" />
+              <div>
+                <p className="font-medium">Submit Tool</p>
+                <p className="text-sm text-muted-foreground">Share your latest creation</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors">
+              <BarChart3 className="h-8 w-8 text-purple-500" />
+              <div>
+                <p className="font-medium">View Analytics</p>
+                <p className="text-sm text-muted-foreground">Check your performance</p>
               </div>
             </div>
           </div>
-        );
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
 
-      case '/dashboard/settings':
-        return (
-          <div className="min-h-screen bg-slate-900 text-white">
-            <div className="bg-slate-800 p-6 border-b border-slate-700">
-              <div className="flex items-center gap-3">
-                <Settings className="size-6 text-gray-400" />
-                <h1 className="text-2xl font-bold">Settings</h1>
-              </div>
-            </div>
-            <div className="p-6">
-              <div className="max-w-4xl mx-auto space-y-6">
-                <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
-                  <h3 className="text-lg font-semibold mb-4">General Settings</h3>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span>Email Notifications</span>
-                      <input type="checkbox" defaultChecked className="w-4 h-4" />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Dark Mode</span>
-                      <input type="checkbox" defaultChecked className="w-4 h-4" />
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
-                  <h3 className="text-lg font-semibold mb-4">Privacy Settings</h3>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span>Public Profile</span>
-                      <input type="checkbox" defaultChecked className="w-4 h-4" />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Show Online Status</span>
-                      <input type="checkbox" className="w-4 h-4" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-
-      default:
-        return (
-          <div className="min-h-screen bg-slate-900 text-white">
-            <div className="bg-slate-800 p-6 border-b border-slate-700">
-              <h1 className="text-2xl font-bold">Welcome to Dashboard</h1>
-            </div>
-            <div className="p-6">
-              <div className="text-center py-20">
-                <h2 className="text-xl font-semibold mb-4">Select an item from the sidebar to get started</h2>
-                <p className="text-slate-400">Choose any option from the left sidebar to view content here.</p>
-              </div>
-            </div>
-          </div>
-        );
-    }
-  };
-
-  return renderContent();
-}
+export default DashboardContent;
