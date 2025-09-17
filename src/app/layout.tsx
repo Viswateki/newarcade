@@ -21,10 +21,8 @@ export default function RootLayout({
     <html lang="en" className="transition-colors duration-300">
       <body className={`${inter.className} antialiased transition-colors duration-300`}>
         <ClientThemeProvider>
-          <AuthProvider>
-            <NavigationWrapper />
-            {children}
-          </AuthProvider>
+          <NavigationWrapper />
+          {children}
         </ClientThemeProvider>
       </body>
     </html>

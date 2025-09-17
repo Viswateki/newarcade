@@ -16,7 +16,8 @@ import {
   LogOut,
   Settings,
   BookOpen,
-  Lightbulb
+  Lightbulb,
+  ChevronDown
 } from "lucide-react"
 
 import {
@@ -68,6 +69,37 @@ ListItem.displayName = "ListItem"
 export function NewNavigationMenu() {
   const { user, logout } = useAuth()
   const { theme, colors } = useTheme()
+  const [accountOpen, setAccountOpen] = React.useState(false)
+  const hoverTimer = React.useRef<number | null>(null)
+  const accountRef = React.useRef<HTMLDivElement | null>(null)
+
+  // Close on outside click, Escape key, or when cursor leaves the window
+  React.useEffect(() => {
+    if (!accountOpen) return
+
+    const onMouseDown = (e: MouseEvent) => {
+      if (accountRef.current && !accountRef.current.contains(e.target as Node)) {
+        setAccountOpen(false)
+      }
+    }
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setAccountOpen(false)
+    }
+    const onDocMouseLeave = () => {
+      // Pointer left the viewport entirely
+      setAccountOpen(false)
+    }
+    document.addEventListener('mousedown', onMouseDown)
+    document.addEventListener('keydown', onKeyDown)
+    document.addEventListener('mouseleave', onDocMouseLeave)
+    window.addEventListener('blur', onDocMouseLeave)
+    return () => {
+      document.removeEventListener('mousedown', onMouseDown)
+      document.removeEventListener('keydown', onKeyDown)
+      document.removeEventListener('mouseleave', onDocMouseLeave)
+      window.removeEventListener('blur', onDocMouseLeave)
+    }
+  }, [accountOpen])
 
   const handleLogout = React.useCallback(async () => {
     try {
@@ -435,43 +467,97 @@ export function NewNavigationMenu() {
       
       {/* Account menu on the right */}
       <div className="flex items-center">
-        <div className="rounded-lg px-4 py-2">
-          <NavigationMenu>
-            <NavigationMenuList>
-            <NavigationMenuItem>
-              <NavigationMenuTrigger 
-                className="transition-colors duration-300 hover:bg-black/10 dark:hover:bg-white/10"
-                style={{
-                  color: theme === 'dark' ? '#ffffff' : '#1e293b'
-                }}
-              >
-                Account
-              </NavigationMenuTrigger>
-              <NavigationMenuContent>
-                <ul className="grid w-[200px] gap-3 p-4">
-                  <ListItem href="/dashboard" title="Profile">
-                    <div className="flex items-center space-x-2">
-                      <User className="h-4 w-4" />
-                      <span>View profile</span>
-                    </div>
-                  </ListItem>
-                  <ListItem href="#" title="Settings">
-                    <div className="flex items-center space-x-2">
-                      <Settings className="h-4 w-4" />
-                      <span>Account settings</span>
-                    </div>
-                  </ListItem>
-                  <ListItem href="#" title="Sign Out" onClick={handleLogout}>
-                    <div className="flex items-center space-x-2">
-                      <LogOut className="h-4 w-4" />
-                      <span>Logout</span>
-                    </div>
-                  </ListItem>
-                </ul>
-              </NavigationMenuContent>
-            </NavigationMenuItem>
-            </NavigationMenuList>
-          </NavigationMenu>
+        <div
+          ref={accountRef}
+          className="relative px-4 py-2"
+          onMouseEnter={() => {
+            if (hoverTimer.current) window.clearTimeout(hoverTimer.current)
+            hoverTimer.current = window.setTimeout(() => setAccountOpen(true), 100)
+          }}
+          onMouseLeave={() => {
+            if (hoverTimer.current) window.clearTimeout(hoverTimer.current)
+            hoverTimer.current = window.setTimeout(() => setAccountOpen(false), 150)
+          }}
+        >
+          <button
+            onClick={() => setAccountOpen((v) => !v)}
+            className="transition-colors duration-300 hover:bg-black/10 dark:hover:bg-white/10 rounded-md px-4 py-2 text-sm font-medium flex items-center gap-2"
+            style={{ color: theme === 'dark' ? '#ffffff' : '#1e293b' }}
+            aria-haspopup="menu"
+            aria-expanded={accountOpen}
+          >
+            <span>Account</span>
+            <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${accountOpen ? 'rotate-180' : ''}`} />
+          </button>
+
+          {accountOpen && (
+            // Dropdown panel aligned to the right; grows left so it never overflows
+            <div
+              className="absolute right-0 mt-2 z-50 w-56 rounded-lg border shadow-xl backdrop-blur-sm"
+              style={{ 
+                backgroundColor: colors.card, 
+                borderColor: colors.border, 
+                color: colors.foreground,
+                boxShadow: theme === 'dark' 
+                  ? '0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.04)' 
+                  : '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+              }}
+              role="menu"
+            >
+              <div className="px-4 py-3 border-b" style={{ borderColor: colors.border }}>
+                <div className="font-medium" style={{ color: colors.foreground }}>
+                  {user?.name || 'User'}
+                </div>
+              </div>
+
+              <div className="py-2">
+                <Link 
+                  href="/dashboard" 
+                  onClick={() => setAccountOpen(false)} 
+                  className="flex items-center gap-3 w-full px-4 py-2 text-sm transition-colors hover:rounded-md"
+                  style={{ color: colors.foreground }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = colors.muted;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }}
+                >
+                  <User className="h-4 w-4" />
+                  <span>View profile</span>
+                </Link>
+                <Link 
+                  href="#" 
+                  onClick={() => setAccountOpen(false)} 
+                  className="flex items-center gap-3 w-full px-4 py-2 text-sm transition-colors hover:rounded-md"
+                  style={{ color: colors.foreground }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = colors.muted;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }}
+                >
+                  <Settings className="h-4 w-4" />
+                  <span>Account settings</span>
+                </Link>
+                <button 
+                  onClick={() => { setAccountOpen(false); handleLogout(); }} 
+                  className="flex items-center gap-3 w-full px-4 py-2 text-left text-sm transition-colors hover:rounded-md"
+                  style={{ color: colors.foreground }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = colors.muted;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }}
+                >
+                  <LogOut className="h-4 w-4" />
+                  <span>Logout</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
