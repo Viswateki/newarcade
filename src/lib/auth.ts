@@ -104,6 +104,31 @@ export class AuthService {
     }
   }
 
+  // Check if user exists and their account type
+  async checkUserExists(email: string) {
+    try {
+      // Try to create a session with a dummy password to see what type of account this is
+      await account.createEmailPasswordSession(email, 'dummy_password_123');
+      return { exists: true, isOAuthOnly: false }; // If this succeeds, they have a password
+    } catch (error: any) {
+      if (error.code === 401) {
+        if (error.message?.includes('Invalid credentials') || error.message?.includes('wrong password')) {
+          // User exists and has a password, just wrong password
+          return { exists: true, isOAuthOnly: false };
+        } else if (error.message?.includes('Invalid `password` param') || 
+                   error.message?.includes('OAuth')) {
+          // User exists but was created via OAuth (no password set)
+          return { exists: true, isOAuthOnly: true };
+        }
+      } else if (error.code === 404 || error.message?.includes('user not found')) {
+        // User doesn't exist
+        return { exists: false, isOAuthOnly: false };
+      }
+      // For any other error, assume user doesn't exist
+      return { exists: false, isOAuthOnly: false };
+    }
+  }
+
   // OAuth login
   async oAuthLogin(provider: 'google' | 'github') {
     try {

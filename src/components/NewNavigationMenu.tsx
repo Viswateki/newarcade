@@ -48,6 +48,7 @@ const ListItem = React.memo(React.forwardRef<
           `}
           style={{
             color: colors.foreground,
+            backgroundColor: colors.card,
           }}
           {...props}
         >
@@ -112,7 +113,7 @@ export function NewNavigationMenu() {
   if (!user) {
     // Public navigation for non-authenticated users
     return (
-      <div className="flex items-center w-full px-4 py-4 bg-transparent">
+      <div className="flex items-center w-full px-4 py-4 bg-transparent" style={{ overflow: 'visible' }}>
         {/* Logo on the left */}
         <div className="flex items-center space-x-4">
           <span className="text-lg font-bold px-3 py-2 rounded-lg">
@@ -133,7 +134,7 @@ export function NewNavigationMenu() {
         
         {/* Centered navigation menu */}
         <div className="flex-1 flex justify-center">
-          <div className="rounded-lg px-4 py-2">
+          <div className="rounded-lg px-4 py-2" style={{ overflow: 'visible' }}>
             <NavigationMenu>
               <NavigationMenuList>
               <NavigationMenuItem>
@@ -146,7 +147,10 @@ export function NewNavigationMenu() {
                   Discover
                 </NavigationMenuTrigger>
                 <NavigationMenuContent>
-                  <ul className="grid gap-3 p-4 md:w-[400px] lg:w-[500px] lg:grid-cols-[.75fr_1fr]">
+                  <ul 
+                    className="grid gap-3 p-4 md:w-[400px] lg:w-[500px] lg:grid-cols-[.75fr_1fr]"
+                    style={{ backgroundColor: colors.card }}
+                  >
                     <li className="row-span-3">
                       <NavigationMenuLink asChild>
                         <a
@@ -189,7 +193,10 @@ export function NewNavigationMenu() {
                   Community
                 </NavigationMenuTrigger>
                 <NavigationMenuContent>
-                  <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px]">
+                  <ul 
+                    className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px]"
+                    style={{ backgroundColor: colors.card }}
+                  >
                     <ListItem href="/blogs?sort=trending" title="Trending">
                       See what's popular in the community
                     </ListItem>
@@ -216,7 +223,10 @@ export function NewNavigationMenu() {
                   Share Ur Ideas
                 </NavigationMenuTrigger>
                 <NavigationMenuContent>
-                  <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px]">
+                  <ul 
+                    className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px]"
+                    style={{ backgroundColor: colors.card }}
+                  >
                     <ListItem href="/create-blog" title="Write Blog">
                       Share your knowledge and insights
                     </ListItem>
@@ -265,7 +275,7 @@ export function NewNavigationMenu() {
 
   // Authenticated navigation for logged-in users
   return (
-    <div className="flex items-center w-full px-4 py-4 bg-transparent">
+    <div className="flex items-center w-full px-4 py-4 bg-transparent" style={{ overflow: 'visible' }}>
       {/* Logo on the left */}
       <div className="flex items-center space-x-4">
           <span className="text-lg font-bold px-3 py-2 rounded-lg">
@@ -286,7 +296,7 @@ export function NewNavigationMenu() {
       
       {/* Centered navigation menu */}
       <div className="flex-1 flex justify-center">
-        <div className="rounded-lg px-4 py-2">
+        <div className="rounded-lg px-4 py-2" style={{ overflow: 'visible' }}>
           <NavigationMenu>
             <NavigationMenuList>
             <NavigationMenuItem>
@@ -299,7 +309,10 @@ export function NewNavigationMenu() {
                 Workspace
               </NavigationMenuTrigger>
               <NavigationMenuContent>
-                <ul className="grid gap-3 p-4 md:w-[400px] lg:w-[500px] lg:grid-cols-[.75fr_1fr]">
+                <ul 
+                  className="grid gap-3 p-4 md:w-[400px] lg:w-[500px] lg:grid-cols-[.75fr_1fr]"
+                  style={{ backgroundColor: colors.card }}
+                >
                   <li className="row-span-3">
                     <NavigationMenuLink asChild>
                       <a
@@ -390,7 +403,10 @@ export function NewNavigationMenu() {
                 Discover
               </NavigationMenuTrigger>
               <NavigationMenuContent>
-                <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px]">
+                <ul 
+                  className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px]"
+                  style={{ backgroundColor: colors.card }}
+                >
                   <ListItem href="/blogs" title="All Blogs">
                     Browse community content
                   </ListItem>
@@ -417,7 +433,10 @@ export function NewNavigationMenu() {
                 Community
               </NavigationMenuTrigger>
               <NavigationMenuContent>
-                <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px]">
+                <ul 
+                  className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px]"
+                  style={{ backgroundColor: colors.card }}
+                >
                   <ListItem href="/blogs?sort=trending" title="Trending">
                     See what's popular in the community
                   </ListItem>
@@ -444,7 +463,10 @@ export function NewNavigationMenu() {
                 Share Ur Ideas
               </NavigationMenuTrigger>
               <NavigationMenuContent>
-                <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px]">
+                <ul 
+                  className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px]"
+                  style={{ backgroundColor: colors.card }}
+                >
                   <ListItem href="/create-blog" title="Write Blog">
                     Share your knowledge and insights
                   </ListItem>

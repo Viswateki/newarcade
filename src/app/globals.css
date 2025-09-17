@@ -112,6 +112,39 @@ body {
   z-index: 50 !important;
 }
 
+/* Navigation menu viewport fixes */
+[data-radix-navigation-menu-viewport] {
+  overflow: visible !important;
+  background-color: var(--card) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+}
+
+/* Ensure dropdown content has solid background */
+[data-radix-navigation-menu-content] {
+  background-color: var(--card) !important;
+}
+
+/* Navigation menu list items background */
+[data-radix-navigation-menu-content] ul {
+  background-color: var(--card) !important;
+}
+
+/* Navigation menu list items */
+[data-radix-navigation-menu-content] li a {
+  background-color: var(--card) !important;
+}
+
+/* Ensure navigation dropdown content is not clipped */
+nav {
+  overflow: visible !important;
+}
+
+/* Navigation menu root container */
+[data-radix-navigation-menu-root] {
+  overflow: visible !important;
+}
+
 /* Hide scrollbar utility */
 .scrollbar-hide {
   -ms-overflow-style: none;

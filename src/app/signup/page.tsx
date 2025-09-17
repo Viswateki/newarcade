@@ -122,6 +122,13 @@ export default function Signup() {
 
           {!showEmailSignup ? (
             <div className="space-y-4">
+              {/* Helpful guidance message */}
+              <div className="text-center mb-6">
+                <p className="text-sm" style={{ color: colors.cardForeground, opacity: 0.8 }}>
+                  <strong>Recommended:</strong> Sign up with Google or GitHub for faster access
+                </p>
+              </div>
+
               <button
                 className="w-full font-medium py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center border hover:opacity-90"
                 style={{ 

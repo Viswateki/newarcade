@@ -20,6 +20,7 @@ interface AuthContextType {
   signup: (email: string, password: string, name: string) => Promise<void>;
   logout: () => Promise<void>;
   oAuthLogin: (provider: 'google' | 'github') => Promise<void>;
+  checkUserExists: (email: string) => Promise<{ exists: boolean; isOAuthOnly: boolean }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -78,6 +79,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const checkUserExists = async (email: string) => {
+    try {
+      return await authService.checkUserExists(email);
+    } catch (error) {
+      return { exists: false, isOAuthOnly: false };
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -87,6 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signup,
         logout,
         oAuthLogin,
+        checkUserExists,
       }}
     >
       {children}

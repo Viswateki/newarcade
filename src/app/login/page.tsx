@@ -3,6 +3,7 @@
 import { Client, Account, OAuthProvider } from 'appwrite';
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import Link from 'next/link';
 
@@ -24,15 +25,6 @@ const handleOAuthLogin = (provider: 'google' | 'github') => {
   );
 };
 
-const handleEmailLogin = async (email: string, password: string) => {
-  try {
-    await account.createEmailPasswordSession(email, password);
-    window.location.href = '/dashboard';
-  } catch (error: any) {
-    throw new Error(error.message || 'Login failed');
-  }
-};
-
 export default function Login() {
   const [error, setError] = useState('');
   const [email, setEmail] = useState('');
@@ -40,6 +32,7 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [showEmailLogin, setShowEmailLogin] = useState(false);
   const { colors, theme } = useTheme();
+  const { login, checkUserExists } = useAuth();
   const searchParams = useSearchParams();
 
   useEffect(() => {
@@ -55,9 +48,22 @@ export default function Login() {
     setError('');
 
     try {
-      await handleEmailLogin(email, password);
+      // First check if this email belongs to an OAuth-only user
+      const userCheck = await checkUserExists(email);
+      
+      if (userCheck.exists && userCheck.isOAuthOnly) {
+        setError('This email is associated with a Google or GitHub account. Please use the "Login with Google" or "Login with GitHub" button above instead.');
+        setIsLoading(false);
+        return;
+      }
+      
+      await login(email, password);
     } catch (err: any) {
-      setError(err.message);
+      if (err.message === 'OAUTH_USER_NO_PASSWORD') {
+        setError('This email is associated with a Google or GitHub account. Please use the OAuth login buttons above.');
+      } else {
+        setError(err.message);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -120,6 +126,13 @@ export default function Login() {
 
           {!showEmailLogin ? (
             <div className="space-y-4">
+              {/* Helpful guidance message */}
+              <div className="text-center mb-6">
+                <p className="text-sm" style={{ color: colors.cardForeground, opacity: 0.8 }}>
+                  <strong>Quick Login:</strong> Use the same method you used to sign up
+                </p>
+              </div>
+
               <button
                 className="w-full font-medium py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center border hover:opacity-90"
                 style={{ 
