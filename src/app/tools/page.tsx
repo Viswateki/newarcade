@@ -1,8 +1,10 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import NavigationWrapper from '@/components/NavigationWrapper';
 import { useTheme } from '@/contexts/ThemeContext';
+import { toolsService } from '@/lib/toolsService';
+import { Tool } from '@/lib/appwrite';
 import { 
   FiSearch, 
   FiFilter, 
@@ -20,134 +22,9 @@ import {
   FiBarChart,
   FiPenTool,
   FiVideo,
-  FiEdit3
+  FiEdit3,
+  FiLoader
 } from 'react-icons/fi';
-
-// Sample tool data - you can replace this with real data later
-const sampleTools = [
-  {
-    id: 1,
-    name: "Playground",
-    description: "Advanced AI image generation platform with state-of-the-art models for creating stunning visuals.",
-    category: "Image Generation",
-    rating: 4.5,
-    reviews: 1250,
-    pricing: "Freemium",
-    tags: ["AI", "Image", "Creative"],
-    featured: true,
-    new: false,
-    logo: "🎨",
-    cardColor: "from-purple-500 to-pink-500"
-  },
-  {
-    id: 2,
-    name: "InVideo",
-    description: "Create professional videos with AI-powered editing tools and templates.",
-    category: "Content Creation",
-    rating: 4.7,
-    reviews: 892,
-    pricing: "Paid",
-    tags: ["Video", "AI", "Marketing"],
-    featured: true,
-    new: true,
-    logo: "🎬",
-    cardColor: "from-blue-500 to-cyan-500"
-  },
-  {
-    id: 3,
-    name: "Flow XO",
-    description: "Build chatbots and automated workflows without coding skills required.",
-    category: "AI Chatbots",
-    rating: 4.3,
-    reviews: 567,
-    pricing: "Freemium",
-    tags: ["Chatbot", "Automation", "No-Code"],
-    featured: false,
-    new: false,
-    logo: "🤖",
-    cardColor: "from-green-500 to-teal-500"
-  },
-  {
-    id: 4,
-    name: "Jasper AI",
-    description: "AI writing assistant for content creation, marketing copy, and blog posts.",
-    category: "AI Writing",
-    rating: 4.6,
-    reviews: 1834,
-    pricing: "Paid",
-    tags: ["Writing", "Content", "Marketing"],
-    featured: true,
-    new: false,
-    logo: "✍️",
-    cardColor: "from-orange-500 to-red-500"
-  },
-  {
-    id: 5,
-    name: "Landbot",
-    description: "Conversational AI platform for building interactive chatbots and surveys.",
-    category: "AI Chatbots",
-    rating: 4.4,
-    reviews: 445,
-    pricing: "Freemium",
-    tags: ["Chatbot", "Conversational", "Surveys"],
-    featured: false,
-    new: true,
-    logo: "💬",
-    cardColor: "from-indigo-500 to-purple-500"
-  },
-  {
-    id: 6,
-    name: "Krea.ai",
-    description: "Real-time AI image generation and editing with instant visual feedback.",
-    category: "Image Generation",
-    rating: 4.2,
-    reviews: 321,
-    pricing: "Free",
-    tags: ["AI", "Image", "Real-time"],
-    featured: false,
-    new: true,
-    logo: "🖼️",
-    cardColor: "from-yellow-500 to-orange-500"
-  },
-  {
-    id: 7,
-    name: "Perplexity",
-    description: "AI-powered search engine that provides accurate answers with citations.",
-    category: "Research",
-    rating: 4.8,
-    reviews: 2156,
-    pricing: "Freemium",
-    tags: ["Search", "Research", "AI"],
-    featured: true,
-    new: false,
-    logo: "🔍",
-    cardColor: "from-emerald-500 to-green-500"
-  },
-  {
-    id: 8,
-    name: "Zoho SalesIQ",
-    description: "AI-powered customer engagement platform with live chat and analytics.",
-    category: "Productivity",
-    rating: 4.1,
-    reviews: 678,
-    pricing: "Freemium",
-    tags: ["Sales", "Chat", "Analytics"],
-    featured: false,
-    new: false,
-    logo: "📊",
-    cardColor: "from-rose-500 to-pink-500"
-  }
-];
-
-const categories = [
-  { name: "All Categories", icon: FiGrid, count: sampleTools.length },
-  { name: "Image Generation", icon: FiImage, count: 2 },
-  { name: "AI Chatbots", icon: FiMessageSquare, count: 2 },
-  { name: "AI Writing", icon: FiEdit3, count: 1 },
-  { name: "Content Creation", icon: FiVideo, count: 1 },
-  { name: "Research", icon: FiBarChart, count: 1 },
-  { name: "Productivity", icon: FiTool, count: 1 }
-];
 
 const BrowseToolsPage: React.FC = () => {
   const { theme, colors } = useTheme();
@@ -156,11 +33,74 @@ const BrowseToolsPage: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState("All Categories");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [sortBy, setSortBy] = useState("featured");
+  const [tools, setTools] = useState<Tool[]>([]);
+  const [categories, setCategories] = useState<{ name: string; icon: any; count: number }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const filteredTools = sampleTools.filter(tool => {
-    const matchesSearch = tool.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         tool.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         tool.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
+  // Fetch tools and categories from Appwrite
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Fetch all tools
+        const toolsData = await toolsService.getAllTools();
+        console.log('Fetched tools data:', toolsData);
+        setTools(toolsData);
+
+        // Generate categories with counts
+        const allCategories = toolsData.map(tool => tool.category).filter(cat => cat && cat.trim() !== '');
+        const uniqueCategories = [...new Set(allCategories)];
+        
+        const categoriesWithCount = [
+          { name: "All Categories", icon: FiGrid, count: toolsData.length },
+          ...uniqueCategories.map(cat => ({
+            name: cat,
+            icon: getCategoryIcon(cat),
+            count: toolsData.filter(tool => tool.category === cat).length
+          }))
+        ];
+        
+        setCategories(categoriesWithCount);
+      } catch (err) {
+        console.error('Error fetching tools:', err);
+        setError('Failed to load tools. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // Helper function to get category icons
+  const getCategoryIcon = (category: string) => {
+    switch (category.toLowerCase()) {
+      case 'image generation':
+        return FiImage;
+      case 'ai chatbots':
+        return FiMessageSquare;
+      case 'ai writing':
+        return FiEdit3;
+      case 'content creation':
+        return FiVideo;
+      case 'research':
+        return FiBarChart;
+      case 'productivity':
+        return FiTool;
+      case 'coding assistants':
+        return FiCode;
+      default:
+        return FiTool;
+    }
+  };
+
+  const filteredTools = tools.filter(tool => {
+    const matchesSearch = tool.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         tool.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (tool.tags && tool.tags.some(tag => tag?.toLowerCase().includes(searchTerm.toLowerCase())));
     
     const matchesCategory = selectedCategory === "All Categories" || tool.category === selectedCategory;
     
@@ -170,19 +110,20 @@ const BrowseToolsPage: React.FC = () => {
   const sortedTools = [...filteredTools].sort((a, b) => {
     switch (sortBy) {
       case "rating":
-        return b.rating - a.rating;
+        return (b.rating || 0) - (a.rating || 0);
       case "reviews":
-        return b.reviews - a.reviews;
+        return (b.reviews || 0) - (a.reviews || 0);
       case "name":
-        return a.name.localeCompare(b.name);
+        return (a.name || '').localeCompare(b.name || '');
       case "featured":
       default:
         return (b.featured ? 1 : 0) - (a.featured ? 1 : 0);
     }
   });
 
-  const getPricingColor = (pricing: string) => {
-    switch (pricing.toLowerCase()) {
+  const getPricingColor = (pricing: string | undefined) => {
+    const pricingLower = pricing?.toLowerCase() || 'unknown';
+    switch (pricingLower) {
       case "free":
         return "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200";
       case "freemium":
@@ -193,6 +134,43 @@ const BrowseToolsPage: React.FC = () => {
         return "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200";
     }
   };
+
+  if (loading) {
+    return (
+      <>
+        <div className={`min-h-screen transition-colors duration-300`} style={{ backgroundColor: colors.background }}>
+          <NavigationWrapper />
+          <div className="flex items-center justify-center min-h-screen">
+            <div className="text-center">
+              <FiLoader className="w-12 h-12 animate-spin text-cyan-600 mx-auto mb-4" />
+              <p className="text-gray-600 dark:text-gray-400">Loading tools...</p>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (error) {
+    return (
+      <>
+        <div className={`min-h-screen transition-colors duration-300`} style={{ backgroundColor: colors.background }}>
+          <NavigationWrapper />
+          <div className="flex items-center justify-center min-h-screen">
+            <div className="text-center">
+              <p className="text-red-600 dark:text-red-400 mb-4">{error}</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
@@ -283,7 +261,7 @@ const BrowseToolsPage: React.FC = () => {
             {/* Results Count */}
             <div className="mb-6">
               <p className="text-gray-600 dark:text-gray-400">
-                Showing {sortedTools.length} of {sampleTools.length} AI tools
+                Showing {sortedTools.length} of {tools.length} AI tools
               </p>
             </div>
 
@@ -294,26 +272,26 @@ const BrowseToolsPage: React.FC = () => {
             }>
               {sortedTools.map((tool) => (
                 <div
-                  key={tool.id}
+                  key={tool.$id}
                   className={`bg-gray-50 dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden cursor-pointer transform transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl border border-gray-200 dark:border-gray-700 group ${
                     viewMode === "list" ? "flex items-center p-4" : "p-6"
                   }`}
-                  onClick={() => router.push(`/tools/${tool.id}`)}
+                  onClick={() => tool.websiteLink && window.open(tool.websiteLink, '_blank')}
                 >
                   {viewMode === "grid" ? (
                     <>
                       {/* Grid View */}
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex items-center gap-3">
-                          <div className={`w-12 h-12 bg-gradient-to-r ${tool.cardColor} rounded-lg flex items-center justify-center text-2xl group-hover:scale-110 transition-transform duration-300`}>
-                            {tool.logo}
+                          <div className={`w-12 h-12 bg-gradient-to-r ${tool.cardColor || 'from-cyan-500 to-blue-500'} rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
+                            <span className="text-2xl">{tool.logo || tool.fallbackIcon || '🔧'}</span>
                           </div>
                           <div>
                             <h3 className="text-lg font-bold text-gray-900 dark:text-white group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors">
                               {tool.name}
                             </h3>
                             <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full mt-1 ${getPricingColor(tool.pricing)}`}>
-                              {tool.pricing}
+                              {tool.pricing || 'Free'}
                             </span>
                           </div>
                         </div>
@@ -338,16 +316,16 @@ const BrowseToolsPage: React.FC = () => {
                       <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400 mb-3">
                         <div className="flex items-center gap-1">
                           <FiStar className="w-3 h-3 text-yellow-500 fill-current" />
-                          <span className="font-medium">{tool.rating}</span>
-                          <span>({tool.reviews})</span>
+                          <span className="font-medium">{tool.rating || 0}</span>
+                          <span>({tool.reviews || 0})</span>
                         </div>
                         <span className="text-cyan-600 dark:text-cyan-400 text-xs">{tool.category}</span>
                       </div>
 
                       <div className="flex flex-wrap gap-1 mb-3">
-                        {tool.tags.slice(0, 2).map((tag) => (
+                        {tool.tags && tool.tags.slice(0, 2).map((tag, index) => (
                           <span
-                            key={tag}
+                            key={index}
                             className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs rounded-full"
                           >
                             {tag}
@@ -355,8 +333,16 @@ const BrowseToolsPage: React.FC = () => {
                         ))}
                       </div>
 
-                      <button className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 text-white font-medium rounded-lg transition-all duration-300 transform hover:scale-105 text-sm">
-                        View Details
+                      <button 
+                        className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 text-white font-medium rounded-lg transition-all duration-300 transform hover:scale-105 text-sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (tool.websiteLink) {
+                            window.open(tool.websiteLink, '_blank');
+                          }
+                        }}
+                      >
+                        View Tool
                         <FiExternalLink className="w-3 h-3" />
                       </button>
                     </>
@@ -364,8 +350,8 @@ const BrowseToolsPage: React.FC = () => {
                     <>
                       {/* List View */}
                       <div className="flex items-center gap-6 flex-1">
-                        <div className={`w-14 h-14 bg-gradient-to-r ${tool.cardColor} rounded-xl flex items-center justify-center text-2xl group-hover:scale-110 transition-transform duration-300 flex-shrink-0`}>
-                          {tool.logo}
+                        <div className={`w-14 h-14 bg-gradient-to-r ${tool.cardColor || 'from-cyan-500 to-blue-500'} rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300 flex-shrink-0`}>
+                          <span className="text-2xl">{tool.logo || tool.fallbackIcon || '🔧'}</span>
                         </div>
                         
                         <div className="flex-1 min-w-0">
@@ -394,18 +380,26 @@ const BrowseToolsPage: React.FC = () => {
                           <div className="flex items-center gap-6 text-sm text-gray-600 dark:text-gray-400">
                             <div className="flex items-center gap-1">
                               <FiStar className="w-4 h-4 text-yellow-500 fill-current" />
-                              <span className="font-medium">{tool.rating}</span>
-                              <span>({tool.reviews})</span>
+                              <span className="font-medium">{tool.rating || 0}</span>
+                              <span>({tool.reviews || 0})</span>
                             </div>
                             <span className="text-cyan-600 dark:text-cyan-400">{tool.category}</span>
                             <span className={`px-2 py-1 text-xs font-medium rounded-full ${getPricingColor(tool.pricing)}`}>
-                              {tool.pricing}
+                              {tool.pricing || 'Free'}
                             </span>
                           </div>
                         </div>
                         
-                        <button className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 text-white font-medium rounded-lg transition-all duration-300 transform hover:scale-105 flex-shrink-0">
-                          View Details
+                        <button 
+                          className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 text-white font-medium rounded-lg transition-all duration-300 transform hover:scale-105 flex-shrink-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (tool.websiteLink) {
+                              window.open(tool.websiteLink, '_blank');
+                            }
+                          }}
+                        >
+                          View Tool
                           <FiExternalLink className="w-4 h-4" />
                         </button>
                       </div>
