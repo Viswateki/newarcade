@@ -116,17 +116,19 @@ export function NewNavigationMenu() {
       <div className="flex items-center w-full px-4 py-4 bg-transparent" style={{ overflow: 'visible' }}>
         {/* Logo on the left */}
         <div className="flex items-center space-x-4">
-          <span className="text-lg font-bold px-3 py-2 rounded-lg">
-            <span className="text-cyan-500">ai</span>
-            <span 
-              className="transition-colors duration-300"
-              style={{
-                color: theme === 'dark' ? '#ffffff' : '#1e293b'
-              }}
-            >
-              arcade
+          <Link href="/" className="cursor-pointer hover:opacity-80 transition-opacity duration-300 relative z-50">
+            <span className="text-lg font-bold px-3 py-2 rounded-lg">
+              <span className="text-cyan-500">ai</span>
+              <span 
+                className="transition-colors duration-300"
+                style={{
+                  color: theme === 'dark' ? '#ffffff' : '#1e293b'
+                }}
+              >
+                arcade
+              </span>
             </span>
-          </span>
+          </Link>
           <div className="rounded-lg">
             <ThemeToggle />
           </div>
@@ -278,6 +280,7 @@ export function NewNavigationMenu() {
     <div className="flex items-center w-full px-4 py-4 bg-transparent" style={{ overflow: 'visible' }}>
       {/* Logo on the left */}
       <div className="flex items-center space-x-4">
+        <Link href="/" className="cursor-pointer hover:opacity-80 transition-opacity duration-300 relative z-50">
           <span className="text-lg font-bold px-3 py-2 rounded-lg">
             <span className="text-cyan-500">ai</span>
             <span 
@@ -289,6 +292,7 @@ export function NewNavigationMenu() {
               arcade
             </span>
           </span>
+        </Link>
         <div className="rounded-lg">
           <ThemeToggle />
         </div>

@@ -1,5 +1,6 @@
-import { databases, DATABASE_ID, TOOLS_COLLECTION_ID, Tool } from './appwrite';
+import { databases, DATABASE_ID, TOOLS_COLLECTION_ID, Tool, getToolImageUrl } from './appwrite';
 import { Query } from 'appwrite';
+import { storageService } from './storageService';
 
 export class ToolsService {
     // Fetch all tools
@@ -10,7 +11,7 @@ export class ToolsService {
                 TOOLS_COLLECTION_ID,
                 [
                     Query.orderDesc('$createdAt'),
-                    Query.limit(100) // Adjust limit as needed
+                    Query.limit(500) // Increased limit to ensure we get all tools
                 ]
             );
             return response.documents as unknown as Tool[];
@@ -98,6 +99,53 @@ export class ToolsService {
         } catch (error) {
             console.error('Error fetching categories:', error);
             return [];
+        }
+    }
+
+    // Enrich a single tool with proper image URL
+    private enrichToolWithImageUrl(tool: Tool): Tool {
+        return {
+            ...tool,
+            // Add a computed property for the image URL
+            computedImageUrl: getToolImageUrl(tool)
+        };
+    }
+
+    // Enrich tools array with proper image URLs
+    private enrichToolsWithImageUrls(tools: Tool[]): Tool[] {
+        return tools.map(tool => this.enrichToolWithImageUrl(tool));
+    }
+
+    // Get all tools with proper image URLs
+    async getAllToolsWithImages(): Promise<Tool[]> {
+        try {
+            const tools = await this.getAllTools();
+            return this.enrichToolsWithImageUrls(tools);
+        } catch (error) {
+            console.error('Error fetching tools with images:', error);
+            throw error;
+        }
+    }
+
+    // Get tools by category with proper image URLs
+    async getToolsByCategoryWithImages(category: string): Promise<Tool[]> {
+        try {
+            const tools = await this.getToolsByCategory(category);
+            return this.enrichToolsWithImageUrls(tools);
+        } catch (error) {
+            console.error('Error fetching tools by category with images:', error);
+            throw error;
+        }
+    }
+
+    // Get featured tools with proper image URLs
+    async getFeaturedToolsWithImages(): Promise<Tool[]> {
+        try {
+            const tools = await this.getFeaturedTools();
+            return this.enrichToolsWithImageUrls(tools);
+        } catch (error) {
+            console.error('Error fetching featured tools with images:', error);
+            throw error;
         }
     }
 }

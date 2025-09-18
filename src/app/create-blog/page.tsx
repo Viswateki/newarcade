@@ -535,7 +535,7 @@ export default function CreateBlogPage() {
                     <button
                       type="button"
                       onClick={addTag}
-                      className="px-4 py-3 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-xl hover:from-purple-600 hover:to-blue-600 transition-all"
+                      className="px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-all"
                     >
                       <FaPlus />
                     </button>

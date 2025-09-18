@@ -822,3 +822,51 @@ header .nav-trigger * {
 }
 
 /* Account dropdown now uses a custom panel; Radix alignment overrides removed. */
+
+/* Custom Scrollbar Styles */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(209 213 219) transparent;
+  scroll-behavior: auto !important;
+  scroll-padding: 0 !important;
+}
+
+.dark .scrollbar-thin {
+  scrollbar-color: rgb(75 85 99) transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: rgb(209 213 219);
+  border-radius: 3px;
+}
+
+.dark .scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: rgb(75 85 99);
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(156 163 175);
+}
+
+.dark .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(107 114 128);
+}
+
+/* Prevent unwanted scrolling on input focus */
+input:focus {
+  scroll-margin: 0 !important;
+  scroll-padding: 0 !important;
+}
+
+/* Prevent auto-scroll on focus */
+* {
+  scroll-behavior: auto !important;
+}

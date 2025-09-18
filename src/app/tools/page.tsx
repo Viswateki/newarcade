@@ -1,69 +1,45 @@
 "use client";
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, useRef } from 'react';
 import NavigationWrapper from '@/components/NavigationWrapper';
+import GradientText from '@/components/GradientText';
 import { useTheme } from '@/contexts/ThemeContext';
 import { toolsService } from '@/lib/toolsService';
-import { Tool } from '@/lib/appwrite';
-import { 
-  FiSearch, 
-  FiFilter, 
-  FiGrid, 
-  FiList, 
-  FiStar, 
-  FiUsers, 
-  FiExternalLink, 
-  FiArrowLeft,
-  FiImage,
-  FiMessageSquare,
-  FiCode,
-  FiMusic,
-  FiTool,
-  FiBarChart,
-  FiPenTool,
-  FiVideo,
-  FiEdit3,
-  FiLoader
-} from 'react-icons/fi';
+import { Tool, getToolImageUrl } from '@/lib/appwrite';
 
-const BrowseToolsPage: React.FC = () => {
+const BrowseToolsPage = () => {
   const { theme, colors } = useTheme();
-  const router = useRouter();
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("All Categories");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [sortBy, setSortBy] = useState("featured");
   const [tools, setTools] = useState<Tool[]>([]);
-  const [categories, setCategories] = useState<{ name: string; icon: any; count: number }[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
 
-  // Fetch tools and categories from Appwrite
+  // Toggle category collapse
+  const toggleCategoryCollapse = (category: string) => {
+    setCollapsedCategories(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(category)) {
+        newSet.delete(category);
+      } else {
+        newSet.add(category);
+      }
+      return newSet;
+    });
+  };
+
+  // Debug: Log theme colors
+  console.log('Theme:', theme, 'Colors:', colors);
+
+  // Fetch tools from Appwrite
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
         setError(null);
         
-        // Fetch all tools
-        const toolsData = await toolsService.getAllTools();
+        // Fetch all tools with proper image URLs
+        const toolsData = await toolsService.getAllToolsWithImages();
         console.log('Fetched tools data:', toolsData);
         setTools(toolsData);
-
-        // Generate categories with counts
-        const allCategories = toolsData.map(tool => tool.category).filter(cat => cat && cat.trim() !== '');
-        const uniqueCategories = [...new Set(allCategories)];
-        
-        const categoriesWithCount = [
-          { name: "All Categories", icon: FiGrid, count: toolsData.length },
-          ...uniqueCategories.map(cat => ({
-            name: cat,
-            icon: getCategoryIcon(cat),
-            count: toolsData.filter(tool => tool.category === cat).length
-          }))
-        ];
-        
-        setCategories(categoriesWithCount);
       } catch (err) {
         console.error('Error fetching tools:', err);
         setError('Failed to load tools. Please try again later.');
@@ -75,378 +51,880 @@ const BrowseToolsPage: React.FC = () => {
     fetchData();
   }, []);
 
-  // Helper function to get category icons
-  const getCategoryIcon = (category: string) => {
-    switch (category.toLowerCase()) {
-      case 'image generation':
-        return FiImage;
-      case 'ai chatbots':
-        return FiMessageSquare;
-      case 'ai writing':
-        return FiEdit3;
-      case 'content creation':
-        return FiVideo;
-      case 'research':
-        return FiBarChart;
-      case 'productivity':
-        return FiTool;
-      case 'coding assistants':
-        return FiCode;
-      default:
-        return FiTool;
+  const handleToolClick = (tool: Tool) => {
+    console.log('Tool clicked:', tool); // Debug log
+    
+    // Try different possible property names for the website link
+    const websiteUrl = tool.websiteLink || 
+                      (tool as any).website || 
+                      (tool as any).url || 
+                      (tool as any).link ||
+                      (tool as any).websiteUrl;
+    
+    console.log('Website URL found:', websiteUrl); // Debug website link
+    
+    if (websiteUrl) {
+      window.open(websiteUrl, '_blank');
+    } else {
+      console.warn('No website link found for tool:', tool.name);
+      // Show user feedback
+      alert(`Sorry, no website link available for ${tool.name}`);
     }
   };
 
-  const filteredTools = tools.filter(tool => {
-    const matchesSearch = tool.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         tool.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (tool.tags && tool.tags.some(tag => tag?.toLowerCase().includes(searchTerm.toLowerCase())));
+  // Skeleton loader component
+  const ToolCardSkeleton = () => {
+    const { colors, theme } = useTheme();
     
-    const matchesCategory = selectedCategory === "All Categories" || tool.category === selectedCategory;
-    
-    return matchesSearch && matchesCategory;
-  });
-
-  const sortedTools = [...filteredTools].sort((a, b) => {
-    switch (sortBy) {
-      case "rating":
-        return (b.rating || 0) - (a.rating || 0);
-      case "reviews":
-        return (b.reviews || 0) - (a.reviews || 0);
-      case "name":
-        return (a.name || '').localeCompare(b.name || '');
-      case "featured":
-      default:
-        return (b.featured ? 1 : 0) - (a.featured ? 1 : 0);
-    }
-  });
-
-  const getPricingColor = (pricing: string | undefined) => {
-    const pricingLower = pricing?.toLowerCase() || 'unknown';
-    switch (pricingLower) {
-      case "free":
-        return "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200";
-      case "freemium":
-        return "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200";
-      case "paid":
-        return "bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200";
-      default:
-        return "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200";
-    }
+    return (
+      <div className="flex-shrink-0 w-28 md:w-32 flex flex-col items-center text-center">
+        <div 
+          className="w-20 h-20 md:w-24 md:h-24 overflow-hidden p-0.5 relative"
+          style={{
+            backgroundColor: colors.card,
+            borderRadius: '32px',
+            transform: 'rotate(-2deg)',
+          }}
+        >
+          {/* Shimmer effect */}
+          <div 
+            className="w-full h-full rounded-[28px] relative overflow-hidden"
+            style={{ backgroundColor: theme === 'dark' ? 'rgba(55, 65, 81, 0.3)' : 'rgba(229, 231, 235, 0.5)' }}
+          >
+            <div 
+              className="absolute inset-0 -translate-x-full animate-shimmer"
+              style={{
+                background: `linear-gradient(90deg, transparent, ${theme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.8)'}, transparent)`,
+                animationDuration: '1.5s',
+                animationIterationCount: 'infinite'
+              }}
+            />
+          </div>
+        </div>
+        <div 
+          className="w-16 h-3 mt-3 rounded"
+          style={{ backgroundColor: theme === 'dark' ? 'rgba(55, 65, 81, 0.3)' : 'rgba(229, 231, 235, 0.5)' }}
+        />
+      </div>
+    );
   };
 
-  if (loading) {
-    return (
-      <>
-        <div className={`min-h-screen transition-colors duration-300`} style={{ backgroundColor: colors.background }}>
-          <NavigationWrapper />
-          <div className="flex items-center justify-center min-h-screen">
-            <div className="text-center">
-              <FiLoader className="w-12 h-12 animate-spin text-cyan-600 mx-auto mb-4" />
-              <p className="text-gray-600 dark:text-gray-400">Loading tools...</p>
-            </div>
-          </div>
-        </div>
-      </>
-    );
-  }
+  // Enhanced categorization logic - returns single primary category
+  const getPrimaryCategoryForTool = (tool: Tool): string => {
+    // Secondary categorization based on tags and descriptions
+    const toolName = tool.name?.toLowerCase() || '';
+    const toolDesc = tool.description?.toLowerCase() || '';
+    const toolTags = tool.tags?.map((tag: string) => tag.toLowerCase()) || [];
+    const allText = [toolName, toolDesc, ...toolTags].join(' ');
+    
+    // Priority order: most specific to least specific
+    
+    // Official/Popular bots (highest priority for well-known companies)
+    if (toolName.includes('google') || toolName.includes('openai') || toolName.includes('microsoft') ||
+        toolName.includes('github') || toolName.includes('notion') || toolName.includes('grammarly') ||
+        allText.includes('official') || tool.featured) {
+      return 'Official bots';
+    }
+    
+    // Image generation bots
+    if (allText.includes('image') || allText.includes('photo') || allText.includes('art') || 
+        allText.includes('dall-e') || allText.includes('midjourney') || allText.includes('generate') ||
+        allText.includes('visual') || allText.includes('picture')) {
+      return 'Image generation bots';
+    }
+    
+    // Video generation bots
+    if (allText.includes('video') || allText.includes('film') || allText.includes('movie') ||
+        allText.includes('animation') || allText.includes('clip') || allText.includes('editing')) {
+      return 'Video generation bots';
+    }
+    
+    // Audio generation bots
+    if (allText.includes('audio') || allText.includes('music') || allText.includes('sound') ||
+        allText.includes('voice') || allText.includes('song') || allText.includes('podcast')) {
+      return 'Audio generation bots';
+    }
+    
+    // Writing/Content bots
+    if (allText.includes('writing') || allText.includes('content') || allText.includes('copy') ||
+        allText.includes('text') || allText.includes('article') || allText.includes('blog') ||
+        allText.includes('grammar') || allText.includes('editing')) {
+      return 'Writing bots';
+    }
+    
+    // Search/Research bots
+    if (allText.includes('search') || allText.includes('research') || allText.includes('data') ||
+        allText.includes('analytics') || allText.includes('insights') || allText.includes('information') ||
+        allText.includes('knowledge') || allText.includes('notes')) {
+      return 'Search bots';
+    }
+    
+    // Chat/Conversational bots
+    if (allText.includes('chat') || allText.includes('conversation') || allText.includes('assistant') ||
+        allText.includes('companion') || allText.includes('talk') || allText.includes('dialogue')) {
+      return 'Chat bots';
+    }
+    
+    // Productivity bots
+    if (allText.includes('productivity') || allText.includes('work') || allText.includes('business') ||
+        allText.includes('meeting') || allText.includes('schedule') || allText.includes('organization')) {
+      return 'Productivity bots';
+    }
+    
+    // Default to original category or uncategorized
+    return tool.category || 'Uncategorized';
+  };
 
-  if (error) {
-    return (
-      <>
-        <div className={`min-h-screen transition-colors duration-300`} style={{ backgroundColor: colors.background }}>
-          <NavigationWrapper />
-          <div className="flex items-center justify-center min-h-screen">
-            <div className="text-center">
-              <p className="text-red-600 dark:text-red-400 mb-4">{error}</p>
-              <button
-                onClick={() => window.location.reload()}
-                className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors"
-              >
-                Retry
-              </button>
-            </div>
-          </div>
-        </div>
-      </>
-    );
-  }
+  const groupedTools = tools.reduce((acc, tool) => {
+    const primaryCategory = getPrimaryCategoryForTool(tool);
+    
+    if (!acc[primaryCategory]) {
+      acc[primaryCategory] = [];
+    }
+    // Only add if not already in this category (avoid duplicates)
+    if (!acc[primaryCategory].find(t => t.$id === tool.$id)) {
+      acc[primaryCategory].push(tool);
+    }
+    
+    return acc;
+  }, {} as Record<string, Tool[]>);
 
   return (
     <>
-      <div className={`min-h-screen transition-colors duration-300`} style={{ backgroundColor: colors.background }}>
-        <NavigationWrapper />
-        
-        <main className="container mx-auto px-4 pt-8 pb-16 max-w-7xl">
-          {/* Header Section */}
-            <div className="text-center mb-12 pt-8">
-              <h1 className="text-5xl md:text-6xl font-bold text-gray-900 dark:text-white mb-6">
-                Browse <span className="text-cyan-400">AI</span> Tools
-              </h1>
-              <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-400 max-w-4xl mx-auto leading-relaxed">
-                Discover the perfect AI tools for your needs. Search, filter, and explore our curated collection.
+      <NavigationWrapper />
+      <div 
+        className="min-h-screen antialiased font-sans transition-all duration-500 relative"
+        style={{
+          backgroundColor: colors.background,
+          color: colors.foreground
+        }}
+      >
+        {/* Loading & Error States */}
+        {loading && (
+          <div 
+            className="pt-24 pb-8 md:pt-32 md:pb-16 px-6 md:px-8 lg:px-12 xl:px-16 w-full transition-opacity duration-300 relative z-10"
+            style={{
+              backgroundColor: colors.background,
+              color: colors.foreground
+            }}
+          >
+            <header className="mb-8 text-center">
+              <GradientText 
+                className="text-4xl md:text-5xl font-extrabold mb-2"
+                colors={theme === 'dark' 
+                  ? ['#ffffff', '#f1f5f9', '#e2e8f0', '#ffffff'] 
+                  : ['#1f2937', '#374151', '#4b5563', '#1f2937']
+                }
+                animationSpeed={6}
+              >
+                Browse AI Bots
+              </GradientText>
+              <p className="text-lg" style={{ color: colors.cardForeground }}>
+                Discovering the latest tools...
               </p>
-            </div>
+            </header>
 
-            {/* Search and Filters */}
-            <div className="bg-gray-50 dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 mb-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Search */}
-                <div className="relative">
-                  <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                  <input
-                    type="text"
-                    placeholder="Search AI tools..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+            {/* Skeleton Categories */}
+            {[1, 2, 3].map((category) => (
+              <div key={category} className="mb-12">
+                <div className="flex justify-between items-center mb-4 px-1">
+                  <div 
+                    className="h-6 w-32 rounded"
+                    style={{ backgroundColor: theme === 'dark' ? 'rgba(55, 65, 81, 0.3)' : 'rgba(229, 231, 235, 0.5)' }}
+                  />
+                  <div 
+                    className="h-8 w-16 rounded-lg"
+                    style={{ backgroundColor: theme === 'dark' ? 'rgba(55, 65, 81, 0.3)' : 'rgba(229, 231, 235, 0.5)' }}
                   />
                 </div>
-
-                {/* Category Filter */}
-                <div>
-                  <select
-                    value={selectedCategory}
-                    onChange={(e) => setSelectedCategory(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-                  >
-                    {categories.map((category) => (
-                      <option key={category.name} value={category.name}>
-                        {category.name} ({category.count})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Sort */}
-                <div>
-                  <select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-                  >
-                    <option value="featured">Featured First</option>
-                    <option value="rating">Highest Rated</option>
-                    <option value="reviews">Most Reviews</option>
-                    <option value="name">Alphabetical</option>
-                  </select>
-                </div>
-
-                {/* View Mode */}
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setViewMode("grid")}
-                    className={`flex-1 px-4 py-3 rounded-lg font-medium transition-colors duration-200 ${
-                      viewMode === "grid"
-                        ? "bg-cyan-600 text-white"
-                        : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                    }`}
-                  >
-                    <FiGrid className="w-5 h-5 mx-auto" />
-                  </button>
-                  <button
-                    onClick={() => setViewMode("list")}
-                    className={`flex-1 px-4 py-3 rounded-lg font-medium transition-colors duration-200 ${
-                      viewMode === "list"
-                        ? "bg-cyan-600 text-white"
-                        : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                    }`}
-                  >
-                    <FiList className="w-5 h-5 mx-auto" />
-                  </button>
+                <div className="flex space-x-6 overflow-x-hidden py-4">
+                  {[1, 2, 3, 4, 5, 6].map((tool) => (
+                    <ToolCardSkeleton key={tool} />
+                  ))}
                 </div>
               </div>
-            </div>
+            ))}
 
-            {/* Results Count */}
-            <div className="mb-6">
-              <p className="text-gray-600 dark:text-gray-400">
-                Showing {sortedTools.length} of {tools.length} AI tools
+            {/* Add shimmer animation */}
+            <style>{`
+              @keyframes shimmer {
+                0% { transform: translateX(-100%); }
+                100% { transform: translateX(100%); }
+              }
+              .animate-shimmer {
+                animation: shimmer 1.5s infinite;
+              }
+            `}</style>
+          </div>
+        )}
+
+        {error && (
+          <div 
+            className="flex items-center justify-center min-h-screen fixed inset-0 z-50 transition-opacity duration-300"
+            style={{ backgroundColor: colors.background }}
+          >
+            <div className="text-center max-w-md mx-auto px-6">
+              {/* Fun SVG illustration */}
+              <div className="w-32 h-32 mx-auto mb-6">
+                <svg
+                  viewBox="0 0 200 200"
+                  className="w-full h-full"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  {/* Robot body */}
+                  <rect
+                    x="60"
+                    y="80"
+                    width="80"
+                    height="80"
+                    rx="20"
+                    fill={theme === 'dark' ? '#374151' : '#F3F4F6'}
+                    stroke={theme === 'dark' ? '#6B7280' : '#D1D5DB'}
+                    strokeWidth="2"
+                  />
+                  {/* Robot head */}
+                  <rect
+                    x="70"
+                    y="40"
+                    width="60"
+                    height="50"
+                    rx="15"
+                    fill={theme === 'dark' ? '#4B5563' : '#E5E7EB'}
+                    stroke={theme === 'dark' ? '#6B7280' : '#D1D5DB'}
+                    strokeWidth="2"
+                  />
+                  {/* Eyes (X marks) */}
+                  <g stroke="#EF4444" strokeWidth="3" strokeLinecap="round">
+                    <line x1="80" y1="55" x2="90" y2="65" />
+                    <line x1="90" y1="55" x2="80" y2="65" />
+                    <line x1="110" y1="55" x2="120" y2="65" />
+                    <line x1="120" y1="55" x2="110" y2="65" />
+                  </g>
+                  {/* Mouth (sad) */}
+                  <path
+                    d="M 85 75 Q 100 70 115 75"
+                    stroke={theme === 'dark' ? '#9CA3AF' : '#6B7280'}
+                    strokeWidth="2"
+                    fill="none"
+                    strokeLinecap="round"
+                  />
+                  {/* Antenna */}
+                  <line
+                    x1="100"
+                    y1="40"
+                    x2="100"
+                    y2="25"
+                    stroke={theme === 'dark' ? '#6B7280' : '#D1D5DB'}
+                    strokeWidth="2"
+                  />
+                  <circle
+                    cx="100"
+                    cy="25"
+                    r="4"
+                    fill="#EF4444"
+                  />
+                  {/* Arms */}
+                  <line
+                    x1="60"
+                    y1="100"
+                    x2="40"
+                    y2="120"
+                    stroke={theme === 'dark' ? '#6B7280' : '#D1D5DB'}
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+                  <line
+                    x1="140"
+                    y1="100"
+                    x2="160"
+                    y2="120"
+                    stroke={theme === 'dark' ? '#6B7280' : '#D1D5DB'}
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+                  {/* Sparks/Error indicators */}
+                  <g fill="#FCD34D" opacity="0.8">
+                    <polygon points="30,90 35,100 25,100" />
+                    <polygon points="170,110 175,120 165,120" />
+                    <polygon points="50,70 55,80 45,80" />
+                  </g>
+                </svg>
+              </div>
+
+              <h3 className="text-2xl font-bold mb-4" style={{ color: colors.foreground }}>
+                Oops! Robot needs repairs
+              </h3>
+              <p className="mb-6 text-base leading-relaxed" style={{ color: colors.muted }}>
+                {error} Our robot assistant is taking a quick break. Let's get it back online!
               </p>
-            </div>
-
-            {/* Tools Grid/List */}
-            <div className={viewMode === "grid" 
-              ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" 
-              : "space-y-6"
-            }>
-              {sortedTools.map((tool) => (
-                <div
-                  key={tool.$id}
-                  className={`bg-gray-50 dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden cursor-pointer transform transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl border border-gray-200 dark:border-gray-700 group ${
-                    viewMode === "list" ? "flex items-center p-4" : "p-6"
-                  }`}
-                  onClick={() => tool.websiteLink && window.open(tool.websiteLink, '_blank')}
-                >
-                  {viewMode === "grid" ? (
-                    <>
-                      {/* Grid View */}
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-12 h-12 bg-gradient-to-r ${tool.cardColor || 'from-cyan-500 to-blue-500'} rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
-                            <span className="text-2xl">{tool.logo || tool.fallbackIcon || '🔧'}</span>
-                          </div>
-                          <div>
-                            <h3 className="text-lg font-bold text-gray-900 dark:text-white group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors">
-                              {tool.name}
-                            </h3>
-                            <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full mt-1 ${getPricingColor(tool.pricing)}`}>
-                              {tool.pricing || 'Free'}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-end gap-1">
-                          {tool.featured && (
-                            <span className="px-2 py-1 bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 text-xs font-semibold rounded-full">
-                              Featured
-                            </span>
-                          )}
-                          {tool.new && (
-                            <span className="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs font-semibold rounded-full">
-                              New
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      <p className="text-gray-700 dark:text-gray-300 mb-3 line-clamp-2 leading-relaxed text-sm">
-                        {tool.description}
-                      </p>
-
-                      <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400 mb-3">
-                        <div className="flex items-center gap-1">
-                          <FiStar className="w-3 h-3 text-yellow-500 fill-current" />
-                          <span className="font-medium">{tool.rating || 0}</span>
-                          <span>({tool.reviews || 0})</span>
-                        </div>
-                        <span className="text-cyan-600 dark:text-cyan-400 text-xs">{tool.category}</span>
-                      </div>
-
-                      <div className="flex flex-wrap gap-1 mb-3">
-                        {tool.tags && tool.tags.slice(0, 2).map((tag, index) => (
-                          <span
-                            key={index}
-                            className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs rounded-full"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-
-                      <button 
-                        className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 text-white font-medium rounded-lg transition-all duration-300 transform hover:scale-105 text-sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (tool.websiteLink) {
-                            window.open(tool.websiteLink, '_blank');
-                          }
-                        }}
-                      >
-                        View Tool
-                        <FiExternalLink className="w-3 h-3" />
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      {/* List View */}
-                      <div className="flex items-center gap-6 flex-1">
-                        <div className={`w-14 h-14 bg-gradient-to-r ${tool.cardColor || 'from-cyan-500 to-blue-500'} rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300 flex-shrink-0`}>
-                          <span className="text-2xl">{tool.logo || tool.fallbackIcon || '🔧'}</span>
-                        </div>
-                        
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-2">
-                            <h3 className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors">
-                              {tool.name}
-                            </h3>
-                            <div className="flex items-center gap-2">
-                              {tool.featured && (
-                                <span className="px-2 py-1 bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 text-xs font-semibold rounded-full">
-                                  Featured
-                                </span>
-                              )}
-                              {tool.new && (
-                                <span className="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs font-semibold rounded-full">
-                                  New
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          
-                          <p className="text-gray-700 dark:text-gray-300 mb-3 line-clamp-2">
-                            {tool.description}
-                          </p>
-                          
-                          <div className="flex items-center gap-6 text-sm text-gray-600 dark:text-gray-400">
-                            <div className="flex items-center gap-1">
-                              <FiStar className="w-4 h-4 text-yellow-500 fill-current" />
-                              <span className="font-medium">{tool.rating || 0}</span>
-                              <span>({tool.reviews || 0})</span>
-                            </div>
-                            <span className="text-cyan-600 dark:text-cyan-400">{tool.category}</span>
-                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${getPricingColor(tool.pricing)}`}>
-                              {tool.pricing || 'Free'}
-                            </span>
-                          </div>
-                        </div>
-                        
-                        <button 
-                          className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 text-white font-medium rounded-lg transition-all duration-300 transform hover:scale-105 flex-shrink-0"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (tool.websiteLink) {
-                              window.open(tool.websiteLink, '_blank');
-                            }
-                          }}
-                        >
-                          View Tool
-                          <FiExternalLink className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {/* Empty State */}
-            {sortedTools.length === 0 && (
-              <div className="text-center py-16">
-                <div className="w-24 h-24 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <FiSearch className="w-12 h-12 text-gray-400" />
-                </div>
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">No tools found</h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
-                  We couldn't find any AI tools matching your search criteria. Try adjusting your filters or search terms.
-                </p>
-                <button
-                  onClick={() => {
-                    setSearchTerm("");
-                    setSelectedCategory("All Categories");
-                  }}
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-cyan-600 hover:bg-cyan-700 text-white font-medium rounded-lg transition-colors duration-300"
-                >
-                  Clear Filters
-                </button>
-              </div>
-            )}
-
-            {/* Back to Home */}
-            <div className="text-center mt-20 pt-12 border-t border-gray-200 dark:border-gray-700">
-              <button 
-                onClick={() => router.push('/')}
-                className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 text-white font-semibold rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+              <button
+                onClick={() => window.location.reload()}
+                className="inline-flex items-center gap-3 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50"
               >
-                <FiArrowLeft className="w-5 h-5" />
-                Back to Home
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                </svg>
+                <span>Try Again</span>
               </button>
-              <p className="mt-4 text-gray-600 dark:text-gray-400">
-                Continue exploring our platform
-              </p>
             </div>
+          </div>
+        )}
+
+        {/* Main Content */}
+        <div className={`pt-24 pb-8 md:pt-32 md:pb-16 px-6 md:px-8 lg:px-12 xl:px-16 w-full transition-opacity duration-300 relative z-10 ${loading || error ? 'opacity-0' : 'opacity-100'}`}>
+          <header className="mb-8 text-center">
+            <GradientText 
+              className="text-4xl md:text-5xl font-extrabold mb-2"
+              colors={theme === 'dark' 
+                ? ['#ffffff', '#f1f5f9', '#e2e8f0', '#ffffff'] 
+                : ['#1f2937', '#374151', '#4b5563', '#1f2937']
+              }
+              animationSpeed={6}
+            >
+              Browse AI Bots
+            </GradientText>
+            <p className="text-lg" style={{ color: colors.cardForeground }}>
+              Discover and explore a wide range of AI tools for different needs.
+            </p>
+          </header>
+
+          <main>
+            {/* Define category order for better UX */}
+            {(() => {
+              const categoryOrder = [
+                'Official bots',
+                'Chat bots', 
+                'Image generation bots',
+                'Video generation bots',
+                'Audio generation bots',
+                'Writing bots',
+                'Search bots',
+                'Productivity bots',
+                'Uncategorized'
+              ];
+              
+              // Get sorted categories, showing ordered ones first, then any others
+              const allCategories = Object.keys(groupedTools);
+              const orderedCategories = categoryOrder.filter(cat => allCategories.includes(cat));
+              const otherCategories = allCategories.filter(cat => !categoryOrder.includes(cat));
+              const finalCategories = [...orderedCategories, ...otherCategories];
+              
+              return finalCategories.map(category => (
+                <ToolSection
+                  key={category}
+                  title={category}
+                  tools={groupedTools[category] || []}
+                  onToolClick={handleToolClick}
+                  isCollapsed={collapsedCategories.has(category)}
+                  onToggleCollapse={() => toggleCategoryCollapse(category)}
+                />
+              ));
+            })()}
           </main>
         </div>
-      </>
+      </div>
+    </>
+  );
+};
+
+// ToolSection component for horizontal scrolling
+interface ToolSectionProps {
+  title: string;
+  tools: Tool[];
+  onToolClick: (tool: Tool) => void;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
+}
+
+const ToolSection: React.FC<ToolSectionProps> = ({ title, tools, onToolClick, isCollapsed = false, onToggleCollapse }) => {
+  const { colors, theme } = useTheme();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState<boolean>(false);
+  const [canScrollRight, setCanScrollRight] = useState<boolean>(true);
+  const [isExpanded, setIsExpanded] = useState<boolean>(false);
+
+  // Check scroll position to show/hide buttons
+  const checkScrollPosition = () => {
+    if (scrollRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+      setCanScrollLeft(scrollLeft > 0);
+      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10); // 10px tolerance
+    }
+  };
+
+  // Check scroll position on mount and when tools change
+  useEffect(() => {
+    checkScrollPosition();
+    const handleResize = () => checkScrollPosition();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [tools]);
+
+  const handleScroll = (direction: 'left' | 'right') => {
+    if (scrollRef.current) {
+      const scrollAmount = 300; // Fixed scroll amount for more predictable behavior
+      const currentScroll = scrollRef.current.scrollLeft;
+      const targetScroll = direction === 'left' 
+        ? Math.max(0, currentScroll - scrollAmount)
+        : currentScroll + scrollAmount;
+      
+      scrollRef.current.scrollTo({
+        left: targetScroll,
+        behavior: 'smooth'
+      });
+      
+      // Update button visibility after scroll
+      setTimeout(checkScrollPosition, 300);
+    }
+  };
+
+  // Simplified mouse wheel scrolling - let browser handle it naturally
+  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    // Only intervene if it's a vertical scroll and we want horizontal movement
+    if (scrollRef.current && Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+      // Convert vertical scroll to horizontal only if there's no natural horizontal scroll
+      const scrollAmount = e.deltaY * 0.5;
+      scrollRef.current.scrollLeft += scrollAmount;
+      e.preventDefault();
+    }
+    // For horizontal scrolling (e.deltaX), let the browser handle it naturally
+    
+    // Update button visibility
+    setTimeout(checkScrollPosition, 50);
+  };
+
+  // Simplified touch support - let browser handle natural scrolling
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (scrollRef.current && e.touches[0]) {
+      const touch = e.touches[0];
+      (scrollRef.current as any).touchStartX = touch.clientX;
+      (scrollRef.current as any).touchStartTime = Date.now();
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (scrollRef.current) {
+      // Update button visibility after touch interaction
+      setTimeout(checkScrollPosition, 100);
+    }
+  };
+
+  // Add mouse drag scrolling functionality
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (scrollRef.current) {
+      const startX = e.pageX - scrollRef.current.offsetLeft;
+      const scrollLeft = scrollRef.current.scrollLeft;
+      let hasMoved = false;
+      
+      const handleMouseMove = (e: MouseEvent) => {
+        if (!scrollRef.current) return;
+        
+        const x = e.pageX - scrollRef.current.offsetLeft;
+        const distance = Math.abs(x - startX);
+        
+        // Only start dragging if mouse moved more than 5 pixels
+        if (distance > 5) {
+          hasMoved = true;
+          (scrollRef.current as any).isDragging = true;
+          e.preventDefault();
+          const walk = (x - startX) * 2; // Scroll speed multiplier
+          scrollRef.current.scrollLeft = scrollLeft - walk;
+          scrollRef.current.style.cursor = 'grabbing';
+        }
+      };
+      
+      const handleMouseUp = () => {
+        if (scrollRef.current) {
+          (scrollRef.current as any).isDragging = false;
+          scrollRef.current.style.cursor = 'grab';
+          setTimeout(checkScrollPosition, 100);
+        }
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+      
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    }
+  };
+
+  // Add keyboard support
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (scrollRef.current) {
+      let scrollAmount = 0;
+      
+      switch (e.key) {
+        case 'ArrowLeft':
+          scrollAmount = -200;
+          break;
+        case 'ArrowRight':
+          scrollAmount = 200;
+          break;
+        case 'Home':
+          scrollRef.current.scrollTo({ left: 0, behavior: 'smooth' });
+          e.preventDefault();
+          setTimeout(checkScrollPosition, 300);
+          return;
+        case 'End':
+          scrollRef.current.scrollTo({ left: scrollRef.current.scrollWidth, behavior: 'smooth' });
+          e.preventDefault();
+          setTimeout(checkScrollPosition, 300);
+          return;
+      }
+      
+      if (scrollAmount !== 0) {
+        e.preventDefault();
+        scrollRef.current.scrollTo({
+          left: scrollRef.current.scrollLeft + scrollAmount,
+          behavior: 'smooth'
+        });
+        setTimeout(checkScrollPosition, 300);
+      }
+    }
+  };
+
+  return (
+    <div className="mb-12 relative group">
+      <div className="flex justify-between items-center mb-4 px-1">
+        <div className="flex items-center gap-3">
+          <GradientText 
+            className="text-lg md:text-xl font-bold capitalize"
+            colors={['#06b6d4', '#3b82f6', '#8b5cf6', '#06b6d4']}
+            animationSpeed={4}
+          >
+            {title}
+          </GradientText>
+          {/* Collapse button */}
+          {onToggleCollapse && (
+            <button
+              onClick={onToggleCollapse}
+              className="p-1 rounded-full transition-all duration-200 hover:bg-opacity-20"
+              style={{ backgroundColor: 'transparent', color: colors.muted }}
+              aria-label={isCollapsed ? 'Expand category' : 'Collapse category'}
+            >
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                fill="none" 
+                viewBox="0 0 24 24" 
+                strokeWidth={2} 
+                stroke="currentColor" 
+                className={`w-5 h-5 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+              </svg>
+            </button>
+          )}
+        </div>
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+          style={{
+            backgroundColor: theme === 'dark' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(59, 130, 246, 0.05)',
+            color: '#3B82F6',
+            border: '1px solid rgba(59, 130, 246, 0.2)'
+          }}
+          aria-label={isExpanded ? 'Collapse section' : 'Expand to grid view'}
+        >
+          <span className="text-sm font-semibold">
+            {isExpanded ? 'Show less' : 'See all'}
+          </span>
+          <svg 
+            xmlns="http://www.w3.org/2000/svg" 
+            fill="none" 
+            viewBox="0 0 24 24" 
+            strokeWidth={2} 
+            stroke="currentColor" 
+            className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+          </svg>
+        </button>
+      </div>
+      
+      {/* Collapsible content */}
+      {!isCollapsed && (
+        <>
+          {/* Expanded Grid View */}
+          {isExpanded ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4 py-4">
+              {tools.map((tool: Tool) => (
+                <ToolCard key={tool.$id} tool={tool} onToolClick={onToolClick} />
+              ))}
+            </div>
+          ) : (
+            /* Horizontal Scroll View */
+            <div className="relative">
+              <div
+                ref={scrollRef}
+                className="flex space-x-6 overflow-x-auto py-4 tool-scroll-container scrollbar-hide focus:outline-none scroll-snap-x"
+                onWheel={handleWheel}
+                onTouchStart={handleTouchStart}
+                onTouchEnd={handleTouchEnd}
+                onMouseDown={handleMouseDown}
+                onScroll={checkScrollPosition}
+                onKeyDown={handleKeyDown}
+                tabIndex={0}
+                role="region"
+                aria-label="AI Tools horizontal scroll area. Use arrow keys, mouse wheel, or drag to navigate."
+                style={{ 
+                  scrollbarWidth: 'none', 
+                  msOverflowStyle: 'none',
+                  WebkitOverflowScrolling: 'touch',
+                  cursor: 'grab',
+                  scrollSnapType: 'x mandatory'
+                }}
+              >
+                {tools.map((tool: Tool) => (
+                  <ToolCard key={tool.$id} tool={tool} onToolClick={onToolClick} />
+                ))}
+              </div>
+          
+              {/* Fog Effect and Scroll Arrows */}
+              <style>{`
+                .tool-scroll-container {
+                  scroll-behavior: smooth;
+                  -webkit-overflow-scrolling: touch;
+                  -ms-overflow-style: none;  /* IE and Edge */
+                  scrollbar-width: none;     /* Firefox */
+                }
+                .tool-scroll-container::-webkit-scrollbar {
+                  display: none;
+                }
+                .scrollbar-hide::-webkit-scrollbar {
+                  display: none;
+                }
+                .scrollbar-hide {
+                  -ms-overflow-style: none;
+                  scrollbar-width: none;
+                }
+                .tool-scroll-container:focus {
+                  outline: 2px solid #3B82F6;
+                  outline-offset: 2px;
+                  border-radius: 8px;
+                }
+                .tool-scroll-container:active {
+                  cursor: grabbing !important;
+                }
+                .scroll-snap-x > * {
+                  scroll-snap-align: start;
+                }
+                .fog-effect::before,
+                .fog-effect::after {
+                  content: '';
+                  position: absolute;
+                  top: 0;
+                  bottom: 0;
+                  width: 80px;
+                  pointer-events: none;
+                  z-index: 10;
+                }
+                .fog-effect::before {
+                  left: 0;
+                  background: linear-gradient(to right, ${colors.background} 0%, ${colors.background}80 50%, transparent 100%);
+                }
+                .fog-effect::after {
+                  right: 0;
+                  background: linear-gradient(to left, ${colors.background} 0%, ${colors.background}80 50%, transparent 100%);
+                }
+              `}</style>
+
+              {/* Scroll Arrows with the fog container */}
+              <div className="fog-effect absolute inset-y-0 w-full opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                {canScrollLeft && (
+                  <button
+                    onClick={() => handleScroll('left')}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 backdrop-blur-lg p-3 rounded-full transition-all duration-300 hover:scale-110 z-30 shadow-xl"
+                    style={{
+                      backgroundColor: theme === 'dark' ? 'rgba(17, 24, 39, 0.8)' : 'rgba(255, 255, 255, 0.9)',
+                      color: colors.foreground,
+                      border: `2px solid ${theme === 'dark' ? 'rgba(59, 130, 246, 0.3)' : 'rgba(59, 130, 246, 0.2)'}`,
+                    }}
+                    aria-label="Scroll left"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+                    </svg>
+                  </button>
+                )}
+                {canScrollRight && (
+                  <button
+                    onClick={() => handleScroll('right')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 backdrop-blur-lg p-3 rounded-full transition-all duration-300 hover:scale-110 z-30 shadow-xl"
+                    style={{
+                      backgroundColor: theme === 'dark' ? 'rgba(17, 24, 39, 0.8)' : 'rgba(255, 255, 255, 0.9)',
+                      color: colors.foreground,
+                      border: `2px solid ${theme === 'dark' ? 'rgba(59, 130, 246, 0.3)' : 'rgba(59, 130, 246, 0.2)'}`,
+                    }}
+                    aria-label="Scroll right"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5 15.75 12l-7.5 7.5" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+};
+
+// ToolCard component for a single tool
+interface ToolCardProps {
+  tool: Tool;
+  onToolClick: (tool: Tool) => void;
+}
+
+const ToolCard: React.FC<ToolCardProps> = ({ tool, onToolClick }) => {
+  const { colors, theme } = useTheme();
+  const [imageLoaded, setImageLoaded] = React.useState(false);
+  const [imageFailed, setImageFailed] = React.useState(false);
+  
+  // Debug log to see what logo data we have
+  React.useEffect(() => {
+    console.log('Tool logo data for', tool.name, {
+      logo: tool.logo,
+      imageurl: tool.imageurl,
+      toolImage: tool.toolImage,
+      logoBackgroundColor: tool.logoBackgroundColor,
+      fallbackIcon: tool.fallbackIcon
+    });
+  }, [tool]);
+
+  // Determine the best logo URL to use
+  const getLogoUrl = () => {
+    // First, try to use the computed image URL from the service
+    if (tool.computedImageUrl) {
+      console.log('Using computed image URL for', tool.name, tool.computedImageUrl);
+      return tool.computedImageUrl;
+    }
+    
+    // Fallback to the original logic for backward compatibility
+    const logoUrl = tool.logo || 
+                   tool.imageurl || 
+                   tool.toolImage || 
+                   tool.fallbackIcon;
+    
+    if (logoUrl) {
+      // Use the getToolImageUrl helper function
+      const computedUrl = getToolImageUrl(tool);
+      console.log('Using fallback computed URL for', tool.name, computedUrl);
+      return computedUrl;
+    }
+    
+    // Final fallback to placeholder with first letter
+    console.log('Using placeholder for', tool.name);
+    return `https://placehold.co/100x100/1C64F2/ffffff?text=${tool.name?.charAt(0) || 'T'}`;
+  };
+
+  const logoUrl = getLogoUrl();
+  
+  const handleClick = (e: React.MouseEvent) => {
+    console.log('ToolCard clicked:', tool.name); // Debug log
+    
+    // Stop event propagation to prevent scroll container from handling it
+    e.stopPropagation();
+    e.preventDefault();
+    
+    // Check if we were dragging (with a small delay to ensure drag state is set properly)
+    const scrollContainer = e.currentTarget.closest('.tool-scroll-container');
+    const isDragging = scrollContainer && (scrollContainer as any).isDragging;
+    
+    if (isDragging) {
+      console.log('Click prevented due to dragging');
+      return;
+    }
+    
+    console.log('Calling onToolClick for:', tool.name);
+    onToolClick(tool);
+  };
+
+  // Also add a direct click handler as backup
+  const handleDirectClick = () => {
+    console.log('Direct click handler for:', tool.name);
+    onToolClick(tool);
+  };
+  
+  return (
+    <div
+      onClick={handleClick}
+      onDoubleClick={handleDirectClick} // Backup for double-click
+      className="flex-shrink-0 w-28 md:w-32 flex flex-col items-center text-center cursor-pointer group transition-all duration-300 hover:scale-110 hover:rotate-1 scroll-snap-align-start relative z-10"
+      style={{ 
+        scrollSnapAlign: 'start',
+        pointerEvents: 'auto' // Ensure clicks are enabled
+      }}
+      role="button"
+      tabIndex={0}
+      aria-label={`Open ${tool.name} tool in new tab`}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          console.log('Keyboard activation for:', tool.name);
+          onToolClick(tool);
+        }
+      }}
+    >
+      <div 
+        className="w-20 h-20 md:w-24 md:h-24 overflow-hidden p-0.5 transition-all duration-300 group-hover:shadow-xl shadow-md relative"
+        style={{
+          backgroundColor: tool.logoBackgroundColor || colors.card,
+          borderRadius: '32px',
+          transform: 'rotate(-2deg)',
+          background: tool.logoBackgroundColor 
+            ? `linear-gradient(135deg, ${tool.logoBackgroundColor} 0%, ${tool.logoBackgroundColor}dd 100%)`
+            : `linear-gradient(135deg, ${colors.card} 0%, ${theme === 'dark' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(59, 130, 246, 0.05)'} 100%)`,
+          border: `1px solid ${theme === 'dark' ? 'rgba(59, 130, 246, 0.3)' : 'rgba(59, 130, 246, 0.2)'}`,
+          boxShadow: theme === 'dark' 
+            ? '0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(59, 130, 246, 0.1)'
+            : '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(59, 130, 246, 0.1)'
+        }}
+      >
+        {/* Subtle glow effect */}
+        <div 
+          className="absolute inset-0 rounded-[32px] opacity-0 group-hover:opacity-20 transition-opacity duration-300"
+          style={{
+            background: 'linear-gradient(135deg, #3B82F6, #8B5CF6)',
+            filter: 'blur(8px)',
+            transform: 'scale(1.1)'
+          }}
+        />
+        <img
+          src={logoUrl}
+          alt={`${tool.name} icon`}
+          className="w-full h-full object-cover relative z-10 cursor-pointer"
+          style={{
+            borderRadius: '28px',
+            transform: 'rotate(2deg)',
+            objectFit: tool.logo || tool.imageurl || tool.toolImage ? 'contain' : 'cover', // Use contain for actual logos, cover for placeholders
+            padding: tool.logo || tool.imageurl || tool.toolImage ? '4px' : '0', // Add padding for real logos
+          }}
+          onClick={handleDirectClick} // Additional click handler on image
+          onError={(e) => {
+            // Improved fallback logic
+            const target = e.target as HTMLImageElement;
+            console.log('Image failed to load for', tool.name, 'trying fallback');
+            
+            // Try different fallback options
+            if (tool.fallbackIcon && target.src !== tool.fallbackIcon) {
+              target.src = tool.fallbackIcon;
+            } else {
+              // Final fallback to placeholder
+              target.src = "https://placehold.co/100x100/1C64F2/ffffff?text=" + (tool.name?.charAt(0) || 'T');
+            }
+          }}
+        />
+      </div>
+      <p 
+        className="text-xs md:text-sm mt-3 font-medium transition-all duration-300 group-hover:opacity-80 group-focus:ring-2 group-focus:ring-blue-500/50 rounded cursor-pointer"
+        style={{ color: colors.foreground }}
+        onClick={handleDirectClick} // Make the text clickable too
+      >
+        {tool.name}
+      </p>
+    </div>
   );
 };
 

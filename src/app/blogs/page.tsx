@@ -1,130 +1,332 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { blogService } from '@/lib/blogService_new';
-import { formatTags } from '@/lib/tagsHelper';
-import { Blog } from '@/lib/appwrite';
+import { Blog, Comment } from '@/lib/appwrite';
 import NavigationWrapper from '@/components/NavigationWrapper';
 import { 
   FaEye, 
   FaHeart, 
   FaComment,
   FaBookmark,
-  FaClock,
-  FaUser,
-  FaTags,
-  FaStar,
-  FaSearch,
-  FaPlus,
-  FaRss
+  FaPlus
 } from 'react-icons/fa';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import CategoryFilter from '@/components/CategoryFilter/CategoryFilter';
 
+// BlogCard component moved outside to prevent re-creation
+const BlogCard = ({ 
+  blog, 
+  user, 
+  bookmarkedBlogs, 
+  commentsData, 
+  commentInputs, 
+  loadingComments, 
+  handleBookmark, 
+  handleComment, 
+  handleInputChange, 
+  fetchBlogComments, 
+  formatDate 
+}: { 
+  blog: Blog; 
+  user: any; 
+  bookmarkedBlogs: Set<string>; 
+  commentsData: {[blogId: string]: Comment[]};
+  commentInputs: {[blogId: string]: string};
+  loadingComments: {[blogId: string]: boolean};
+  handleBookmark: (blogId: string) => void;
+  handleComment: (blogId: string) => void;
+  handleInputChange: (blogId: string, value: string) => void;
+  fetchBlogComments: (blogId: string) => void;
+  formatDate: (dateString: string) => string;
+}) => {
+  return (
+    <article className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 hover:shadow-md transition-all duration-200">
+      {/* Header with dots menu */}
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex-1">
+          {/* Title */}
+          <Link href={`/blog/${blog.$id}`}>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white line-clamp-2 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer mb-3">
+              {blog.title || 'Untitled Blog'}
+            </h2>
+          </Link>
+        </div>
+        
+        {/* Three dots menu */}
+        <button className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1">
+          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Main content area with horizontal layout */}
+      <div className="flex gap-6">
+        {/* Left side - Content */}
+        <div className="flex-1">
+          {/* Author and date */}
+          <div className="flex items-center space-x-3 mb-3">
+            <div className="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center">
+              <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                {blog.author_name?.charAt(0).toUpperCase() || 'A'}
+              </span>
+            </div>
+            <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
+              <span className="font-medium">{blog.author_name || 'Anonymous'}</span>
+              <span>•</span>
+              <span>{formatDate(blog.$createdAt!)}</span>
+              <span>•</span>
+              <span>{blog.readTime || '5 min read'}</span>
+            </div>
+          </div>
+
+          {/* Blog excerpt */}
+          <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed mb-4 line-clamp-3">
+            {blog.excerpt || blog.content?.substring(0, 200) + '...' || 'No content available'}
+          </p>
+
+          {/* Tags */}
+          {blog.tags && (
+            <div className="flex flex-wrap gap-2 mb-4">
+              {(typeof blog.tags === 'string' ? blog.tags.split(',') : blog.tags)
+                .slice(0, 3)
+                .map((tag, index) => (
+                  <span 
+                    key={index}
+                    className="px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full text-xs font-medium"
+                  >
+                    {tag.trim()}
+                  </span>
+                ))}
+            </div>
+          )}
+
+          {/* Engagement buttons */}
+          <div className="flex items-center justify-between">
+            {/* Left side - Stats */}
+            <div className="flex items-center space-x-6">
+              <button className="flex items-center space-x-1 text-gray-500 dark:text-gray-400 hover:text-red-500">
+                <FaHeart className="w-4 h-4" />
+                <span className="text-sm">{blog.likes || 0}</span>
+              </button>
+
+              <button className="flex items-center space-x-1 text-gray-500 dark:text-gray-400 hover:text-blue-500">
+                <FaComment className="w-4 h-4" />
+                <span className="text-sm">{blog.comments_count || 0}</span>
+              </button>
+
+              <button className="flex items-center space-x-1 text-gray-500 dark:text-gray-400 hover:text-yellow-500">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                </svg>
+                <span className="text-sm">{blog.likes || 40}</span>
+              </button>
+            </div>
+
+            {/* Right side - Bookmark */}
+            <button
+              onClick={() => handleBookmark(blog.$id!)}
+              className={`transition-colors ${
+                bookmarkedBlogs.has(blog.$id!) 
+                  ? 'text-yellow-500 hover:text-yellow-600' 
+                  : 'text-gray-400 hover:text-yellow-500'
+              }`}
+            >
+              <FaBookmark className={`w-4 h-4 ${bookmarkedBlogs.has(blog.$id!) ? 'fill-current' : ''}`} />
+            </button>
+          </div>
+        </div>
+
+        {/* Right side - Image */}
+        {blog.featured_image && (
+          <div className="w-48 h-32 flex-shrink-0">
+            <img
+              src={blog.featured_image}
+              alt={blog.title || 'Blog image'}
+              className="w-full h-full object-cover rounded-lg"
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Comments Section */}
+      <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700">
+        {/* Existing Comments */}
+        {commentsData[blog.$id!] && commentsData[blog.$id!].length > 0 && (
+          <div className="mb-4 space-y-3">
+            {commentsData[blog.$id!].slice(0, 2).map((comment: Comment) => (
+              <div key={comment.$id} className="flex items-start space-x-3">
+                <div className="w-6 h-6 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center">
+                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                    {comment.user_name?.charAt(0).toUpperCase() || 'A'}
+                  </span>
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">
+                      {comment.user_name || 'Anonymous'}
+                    </span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      {new Date(comment.$createdAt!).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">
+                    {comment.content}
+                  </p>
+                </div>
+              </div>
+            ))}
+            {commentsData[blog.$id!].length > 2 && (
+              <button 
+                className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                onClick={() => fetchBlogComments(blog.$id!)}
+              >
+                Show more comments
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Comment Input */}
+        <div className="flex items-center space-x-3">
+          <div className="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center">
+            <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+              {user?.name?.charAt(0).toUpperCase() || 'A'}
+            </span>
+          </div>
+          <div className="flex-1 relative">
+            <input
+              type="text"
+              placeholder="Add a comment..."
+              value={commentInputs[blog.$id!] || ''}
+              onChange={(e) => handleInputChange(blog.$id!, e.target.value)}
+              disabled={loadingComments[blog.$id!]}
+              className="w-full px-4 py-2 pr-12 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
+            />
+            <button 
+              onClick={() => handleComment(blog.$id!)}
+              disabled={loadingComments[blog.$id!] || !commentInputs[blog.$id!]?.trim()}
+              className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1.5 text-blue-600 hover:text-blue-700 transition-colors disabled:opacity-50"
+            >
+              {loadingComments[blog.$id!] ? (
+                <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+              ) : (
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+                </svg>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+};
 
 export default function BlogsPage() {
   const { colors } = useTheme();
   const { user } = useAuth();
   const router = useRouter();
   const [blogs, setBlogs] = useState<Blog[]>([]);
-  const [featuredBlogs, setFeaturedBlogs] = useState<Blog[]>([]);
-  const [filteredBlogs, setFilteredBlogs] = useState<Blog[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [bookmarkedBlogs, setBookmarkedBlogs] = useState<Set<string>>(new Set());
+  const [commentsData, setCommentsData] = useState<{[blogId: string]: Comment[]}>({});
+  const [commentInputs, setCommentInputs] = useState<{[blogId: string]: string}>({});
+  const [loadingComments, setLoadingComments] = useState<{[blogId: string]: boolean}>({});
 
-  const categories = [
-    'All',
-    'Technology',
-    'Programming',
-    'Data Science',
-    'AI & Machine Learning',
-    'Web Development',
-    'Mobile Development',
-    'DevOps',
-    'Design',
-    'Startup',
-    'Career',
-    'Tutorial',
-    'News',
-    'Opinion',
-    'Review',
-  ];
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      const now = new Date();
+      const diffTime = Math.abs(now.getTime() - date.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-  const filterAndSortBlogs = useCallback(() => {
-    let filtered = [...blogs];
-
-    // Exclude featured blogs from regular list to avoid duplication
-    const featuredBlogIds = featuredBlogs.map(blog => blog.$id);
-    filtered = filtered.filter(blog => !featuredBlogIds.includes(blog.$id));
-
-    // Apply search filter
-    if (searchQuery.trim()) {
-      filtered = filtered.filter(blog => 
-        blog.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        blog.excerpt.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        blog.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        formatTags(blog.tags).some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-      );
+      if (diffDays === 1) return '1 day ago';
+      if (diffDays < 7) return `${diffDays} days ago`;
+      if (diffDays < 30) return `${Math.ceil(diffDays / 7)} weeks ago`;
+      if (diffDays < 365) return `${Math.ceil(diffDays / 30)} months ago`;
+      return `${Math.ceil(diffDays / 365)} years ago`;
+    } catch {
+      return 'Recently';
     }
-
-    // Apply category filter
-    if (selectedCategory && selectedCategory !== 'All') {
-      filtered = filtered.filter(blog => blog.category === selectedCategory);
-    }
-
-    // Sort blogs by latest
-    filtered.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
-
-    setFilteredBlogs(filtered);
-  }, [blogs, featuredBlogs, searchQuery, selectedCategory]);
+  };
 
   useEffect(() => {
     fetchBlogs();
-    fetchFeaturedBlogs();
   }, []);
 
+  // Prevent automatic scrolling
   useEffect(() => {
-    filterAndSortBlogs();
-  }, [filterAndSortBlogs]);
+    const preventAutoScroll = (e: Event) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+
+    document.addEventListener('scroll', preventAutoScroll, { passive: false });
+    return () => {
+      document.removeEventListener('scroll', preventAutoScroll);
+    };
+  }, []);
 
   const fetchBlogs = async () => {
-    setLoading(true);
-    console.log('Fetching blogs with params:', { 
-      page, 
-      offset: (page - 1) * 20, 
-      limit: 20 
-    });
-    
     try {
-      // First, try to fetch ALL blogs to see if any exist
-      const allBlogs = await blogService.getBlogs({ 
-        offset: 0, 
-        limit: 100,
-        // Remove status filter to see all blogs
-      });
-      console.log('ALL blogs in database:', allBlogs);
-      
-      // Then fetch published blogs
-      const publishedBlogs = await blogService.getBlogs({ 
+      const result = await blogService.getBlogs({ 
         offset: (page - 1) * 20, 
         limit: 20, 
         status: 'published'
       });
       
-      console.log('Fetched published blogs:', publishedBlogs);
+      if (page === 1) {
+        setBlogs(result.blogs);
+      } else {
+        setBlogs(prev => [...prev, ...result.blogs]);
+      }
+      setHasMore(result.blogs.length === 20);
+
+      // Fetch bookmark status for each blog if user is logged in
+      if (user) {
+        const bookmarkChecks = await Promise.all(
+          result.blogs.map(blog => blogService.checkIfBookmarked(blog.$id!, user.$id))
+        );
+        
+        const newBookmarkedBlogs = new Set<string>();
+        result.blogs.forEach((blog, index) => {
+          if (bookmarkChecks[index]) {
+            newBookmarkedBlogs.add(blog.$id!);
+          }
+        });
+        
+        if (page === 1) {
+          setBookmarkedBlogs(newBookmarkedBlogs);
+        } else {
+          setBookmarkedBlogs(prev => new Set([...prev, ...newBookmarkedBlogs]));
+        }
+      }
+
+      // Fetch comments for each blog
+      const commentsPromises = result.blogs.map(blog => 
+        blogService.getComments(blog.$id!).catch(() => [] as Comment[])
+      );
+      const commentsResults = await Promise.all(commentsPromises);
+      
+      const newCommentsData: {[blogId: string]: Comment[]} = {};
+      result.blogs.forEach((blog, index) => {
+        newCommentsData[blog.$id!] = commentsResults[index];
+      });
       
       if (page === 1) {
-        setBlogs(publishedBlogs.blogs);
+        setCommentsData(newCommentsData);
       } else {
-        setBlogs(prev => [...prev, ...publishedBlogs.blogs]);
+        setCommentsData(prev => ({ ...prev, ...newCommentsData }));
       }
-      setHasMore(publishedBlogs.blogs.length === 20);
     } catch (error) {
       console.error('Error fetching blogs:', error);
       setBlogs([]);
@@ -133,36 +335,16 @@ export default function BlogsPage() {
     }
   };
 
-  const fetchFeaturedBlogs = async () => {
-    try {
-      const featured = await blogService.getBlogs({ 
-        featured: true, 
-        limit: 3,
-        status: 'published'
-      });
-      setFeaturedBlogs(featured.blogs);
-    } catch (error) {
-      console.error('Error fetching featured blogs:', error);
-    }
-  };
-
   const handleLike = async (blogId: string) => {
     if (!user) {
       router.push('/login');
       return;
     }
-
     try {
-      const isLiked = await blogService.checkIfLiked(blogId, user.$id);
-      
-      if (isLiked) {
-        await blogService.unlikeBlog(blogId, user.$id);
-      } else {
-        await blogService.likeBlog(blogId, user.$id);
-      }
-      
-      // Refresh the blog data
-      fetchBlogs();
+      await blogService.likeBlog(blogId, user.$id);
+      setBlogs(prev => prev.map(blog => 
+        blog.$id === blogId ? { ...blog, likes: (blog.likes || 0) + 1 } : blog
+      ));
     } catch (error) {
       console.error('Error liking blog:', error);
     }
@@ -173,437 +355,225 @@ export default function BlogsPage() {
       router.push('/login');
       return;
     }
-
     try {
-      const isBookmarked = await blogService.checkIfBookmarked(blogId, user.$id);
+      // Check if the blog is already bookmarked
+      const isBookmarked = bookmarkedBlogs.has(blogId);
       
       if (isBookmarked) {
+        // Remove bookmark if already bookmarked
         await blogService.removeBookmark(blogId, user.$id);
+        setBlogs(prev => prev.map(blog => 
+          blog.$id === blogId ? { ...blog, bookmarks: Math.max(0, (blog.bookmarks || 0) - 1) } : blog
+        ));
+        setBookmarkedBlogs(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(blogId);
+          return newSet;
+        });
       } else {
+        // Add bookmark if not bookmarked
         await blogService.bookmarkBlog(blogId, user.$id);
+        setBlogs(prev => prev.map(blog => 
+          blog.$id === blogId ? { ...blog, bookmarks: (blog.bookmarks || 0) + 1 } : blog
+        ));
+        setBookmarkedBlogs(prev => new Set([...prev, blogId]));
       }
     } catch (error) {
-      console.error('Error bookmarking blog:', error);
+      console.error('Error toggling bookmark:', error);
     }
   };
 
-  const formatReadingTime = (minutes: number) => {
-    return `${minutes} min read`;
+  const handleComment = async (blogId: string) => {
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+    
+    const commentText = commentInputs[blogId]?.trim();
+    if (!commentText) return;
+
+    try {
+      setLoadingComments(prev => ({ ...prev, [blogId]: true }));
+      
+      const comment = await blogService.addComment(blogId, user.$id, commentText, user.name);
+      
+      // Update comments data
+      setCommentsData(prev => ({
+        ...prev,
+        [blogId]: [comment, ...(prev[blogId] || [])]
+      }));
+      
+      // Update blog comments count
+      setBlogs(prev => prev.map(blog => 
+        blog.$id === blogId ? { ...blog, comments_count: (blog.comments_count || 0) + 1 } : blog
+      ));
+      
+      // Clear input
+      setCommentInputs(prev => ({ ...prev, [blogId]: '' }));
+    } catch (error) {
+      console.error('Error adding comment:', error);
+    } finally {
+      setLoadingComments(prev => ({ ...prev, [blogId]: false }));
+    }
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric',
-      year: 'numeric'
-    });
+  const fetchBlogComments = async (blogId: string) => {
+    try {
+      const comments = await blogService.getComments(blogId);
+      setCommentsData(prev => ({
+        ...prev,
+        [blogId]: comments
+      }));
+    } catch (error) {
+      console.error('Error fetching comments:', error);
+    }
   };
 
-  const BlogCard = ({ blog, featured = false }: { blog: Blog; featured?: boolean }) => {
-    return (
-      <article 
-        className={`group relative overflow-hidden bg-white dark:bg-gray-900 rounded-2xl border transition-all duration-500 hover:shadow-2xl hover:scale-[1.02] flex flex-col ${
-          featured ? 'lg:col-span-2 lg:row-span-2' : 'h-[480px]'
-        }`}
-        style={{ 
-          backgroundColor: colors.card, 
-          borderColor: colors.border,
-          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)'
-        }}
-      >
-        {/* Image Section */}
-        <Link href={`/blog/${blog.$id}`} className="block">
-          <div className={`relative overflow-hidden cursor-pointer ${featured ? 'aspect-[16/9]' : 'h-48'}`}>
-            {blog.featured_image ? (
-              <>
-                <img 
-                  src={blog.featured_image} 
-                  alt={blog.title}
-                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                />
-                {/* Gradient Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-              </>
-            ) : (
-              /* Enhanced gradient placeholder for blogs without images */
-              <div className="w-full h-full bg-gradient-to-br from-blue-500/20 via-purple-500/20 to-pink-500/20 flex items-center justify-center relative">
-                <div className="text-center space-y-3">
-                  <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg">
-                    <span className="text-white font-bold text-2xl">
-                      {(blog.title || 'U').charAt(0).toUpperCase()}
-                    </span>
-                  </div>
-                  <div className="px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full shadow-md">
-                    <p className="text-white font-semibold text-sm">
-                      {blog.category || 'General'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            {/* Category Badge - Only show on image cards, not on placeholder cards */}
-            {blog.featured_image && (
-              <div className="absolute top-4 left-4">
-                <span className="px-3 py-1.5 backdrop-blur-md rounded-full text-sm font-medium border bg-white/20 text-white border-white/20">
-                  {blog.category || 'General'}
-                </span>
-              </div>
-            )}
-
-            {/* Featured Badge */}
-            {featured && (
-              <div className="absolute top-4 right-4">
-                <div className="flex items-center space-x-1 px-3 py-1.5 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full text-white text-sm font-bold">
-                  <FaStar className="text-xs" />
-                  <span>Featured</span>
-                </div>
-              </div>
-            )}
-          </div>
-        </Link>
-
-        {/* Content Section */}
-        <div className="flex-1 p-4 flex flex-col relative">
-          {/* Author Info */}
-          <div className="flex items-center space-x-3 mb-4">
-            <div className="relative">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-xs">
-                {(blog.author_name || 'Anonymous').charAt(0).toUpperCase()}
-              </div>
-              <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 rounded-full border-2 border-white dark:border-gray-900" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-medium text-sm truncate" style={{ color: colors.cardForeground }}>
-                {blog.author_name || 'Anonymous'}
-              </p>
-              <p className="text-xs opacity-60" style={{ color: colors.cardForeground }}>
-                {blog.updated_at ? formatDate(blog.updated_at) : 'Recently published'}
-              </p>
-            </div>
-          </div>
-
-          {/* Title and Subtitle */}
-          <Link href={`/blog/${blog.$id}`}>
-            <div className="cursor-pointer mb-4 flex-1">
-              <h2 className={`font-bold leading-tight line-clamp-2 group-hover:text-blue-600 transition-colors duration-300 mb-2 ${
-                featured ? 'text-xl' : 'text-lg'
-              }`} style={{ color: colors.cardForeground }}>
-                {blog.title || 'Untitled Blog'}
-              </h2>
-              
-              {blog.subtitle && blog.subtitle.trim() && (
-                <h3 className={`opacity-70 line-clamp-2 leading-relaxed ${
-                  featured ? 'text-base' : 'text-sm'
-                }`} style={{ color: colors.cardForeground }}>
-                  {blog.subtitle}
-                </h3>
-              )}
-
-              {/* Content Preview */}
-              {(blog.excerpt || blog.content) && (
-                <div className={`opacity-60 line-clamp-2 leading-relaxed mt-2 ${
-                  featured ? 'text-sm' : 'text-xs'
-                }`} style={{ color: colors.cardForeground }}>
-                  {blog.excerpt || blog.content.replace(/<[^>]*>/g, '').substring(0, 120) + '...'}
-                </div>
-              )}
-            </div>
-          </Link>
-
-          {/* Tags */}
-          <div className="mb-4">
-            {blog.tags && formatTags(blog.tags).length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {formatTags(blog.tags).slice(0, 3).map((tag: string) => (
-                  <span
-                    key={tag}
-                    className="px-2 py-1 rounded-full text-xs font-medium transition-colors"
-                    style={{ 
-                      backgroundColor: colors.accent + '20',
-                      color: colors.accent,
-                      border: `1px solid ${colors.accent}40`
-                    }}
-                  >
-                    #{tag}
-                  </span>
-                ))}
-                {formatTags(blog.tags).length > 3 && (
-                  <span className="text-xs opacity-50 px-2 py-1" style={{ color: colors.cardForeground }}>
-                    +{formatTags(blog.tags).length - 3} more
-                  </span>
-                )}
-              </div>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                <span
-                  className="px-2 py-1 rounded-full text-xs font-medium"
-                  style={{ 
-                    backgroundColor: colors.accent + '20',
-                    color: colors.accent,
-                    border: `1px solid ${colors.accent}40`
-                  }}
-                >
-                  #{blog.category || 'General'}
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Like, Bookmark and Other Stats - Fixed at bottom */}
-          <div className="absolute bottom-4 left-4 right-4">
-            <div className="flex items-center justify-between pt-3 border-t" style={{ borderColor: colors.border }}>
-              <div className="flex items-center space-x-4">
-                <button
-                  onClick={() => handleLike(blog.$id!)}
-                  className="group/btn flex items-center space-x-1 text-sm opacity-70 hover:opacity-100 hover:text-red-500 transition-all duration-300"
-                  style={{ color: colors.cardForeground }}
-                >
-                  <FaHeart className="group-hover/btn:scale-125 transition-transform duration-300" />
-                  <span>{blog.likes || 0}</span>
-                </button>
-                
-                <Link href={`/blog/${blog.$id}#comments`}>
-                  <div className="group/btn flex items-center space-x-1 text-sm opacity-70 hover:opacity-100 hover:text-blue-500 transition-all duration-300 cursor-pointer"
-                    style={{ color: colors.cardForeground }}
-                  >
-                    <FaComment className="group-hover/btn:scale-125 transition-transform duration-300" />
-                    <span>{blog.comments_count || 0}</span>
-                  </div>
-                </Link>
-                
-                <div className="flex items-center space-x-1 text-sm opacity-70" style={{ color: colors.cardForeground }}>
-                  <FaEye />
-                  <span>{blog.views || 0}</span>
-                </div>
-              </div>
-              
-              <button
-                onClick={() => handleBookmark(blog.$id!)}
-                className="opacity-70 hover:opacity-100 hover:text-yellow-500 transition-all duration-300 hover:scale-125"
-                style={{ color: colors.cardForeground }}
-              >
-                <FaBookmark className="text-sm" />
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Hover Effect Border */}
-        <div className="absolute inset-0 border-2 border-transparent group-hover:border-blue-500/30 rounded-2xl transition-all duration-300 pointer-events-none" />
-      </article>
-    );
+  // Simple input handler
+  const handleInputChange = (blogId: string, value: string) => {
+    console.log('Input change:', blogId, value); // Debug log
+    setCommentInputs(prev => ({
+      ...prev,
+      [blogId]: value
+    }));
   };
 
   return (
-    <div 
-      className="min-h-screen transition-all duration-300"
-      style={{ backgroundColor: colors.background }}
-    >
+    <div className="h-screen bg-gray-50 dark:bg-gray-900 transition-all duration-300 flex flex-col">
       <NavigationWrapper />
 
-      {/* Main Content */}
-      <div className="relative pt-28 pb-16">
+      {/* Main Content Container */}
+      <div className="flex-1 pt-28 pb-4 flex flex-col overflow-hidden">
         
-        {/* Header Section */}
-        <div className="text-center mb-12 px-4 sm:px-6 lg:px-8">
-          <div className="max-w-4xl mx-auto">
-            
-            <p className="text-3xl lg:text-4xl font-bold opacity-90 max-w-3xl mx-auto leading-relaxed mb-8 bg-gradient-to-r from-purple-600 via-blue-600 to-cyan-500 bg-clip-text text-transparent">
-              Discover stories crafted by our community with love
+        {/* Header Section - Fixed */}
+        <div className="flex-shrink-0 max-w-6xl mx-auto w-full px-4 sm:px-6 lg:px-8 mb-6">
+          <div className="space-y-4">
+            {/* Simple Title */}
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+              Discover
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400 text-lg">
+              Explore popular blogs that inspire, educate, and entertain.
             </p>
-
-            {/* Search Section */}
-            <div className="flex justify-center mb-8">
-              <div className="relative w-full max-w-lg">
-                <FaSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search stories, topics, authors..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-12 pr-4 py-4 rounded-2xl border-2 focus:ring-4 focus:ring-blue-300 focus:border-blue-500 transition-all duration-300"
-                  style={{ 
-                    backgroundColor: colors.card, 
-                    borderColor: colors.border,
-                    color: colors.cardForeground 
-                  }}
-                />
-              </div>
+            
+            {/* Navigation Tabs */}
+            <div className="flex space-x-8 border-b border-gray-200 dark:border-gray-700">
+              <button className="pb-4 border-b-2 border-gray-900 dark:border-white font-medium text-gray-900 dark:text-white">
+                Recommended
+              </button>
+              <button className="pb-4 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
+                Add new
+              </button>
+              <button className="pb-4 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
+                First posts
+              </button>
+              <button className="pb-4 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
+                Tags
+              </button>
+              <button className="pb-4 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
+                Reddit
+              </button>
+              <button className="pb-4 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
+                Latest
+              </button>
             </div>
           </div>
         </div>
 
-        {/* Category Filter Section */}
-        <CategoryFilter
-          categories={categories}
-          activeCategory={selectedCategory}
-          onCategoryClick={setSelectedCategory}
-        />
-
-        {/* Active Filters */}
-        {(searchQuery || selectedCategory !== 'All') && (
-          <div className="flex flex-wrap gap-2 justify-center mt-6 mb-8 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-7xl mx-auto flex flex-wrap gap-2 justify-center">
-              {searchQuery && (
-                <span className="px-4 py-2 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-full text-sm font-medium">
-                  Search: "{searchQuery}"
-                </span>
-              )}
-              {selectedCategory !== 'All' && (
-                <span className="px-4 py-2 bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-full text-sm font-medium">
-                  Category: {selectedCategory}
-                </span>
-              )}
-              <button
-                onClick={() => {
-                  setSearchQuery('');
-                  setSelectedCategory('All');
+        {/* Scrollable Content Section */}
+        <div className="flex-1 overflow-hidden">
+          <div className="max-w-6xl mx-auto w-full px-4 sm:px-6 lg:px-8 h-full">
+            <div 
+              className="h-full overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent"
+              style={{ 
+                scrollBehavior: 'auto',
+                overscrollBehavior: 'contain'
+              }}
+            >
+              {/* Blog Container */}
+              <div className="space-y-6 pb-8"
+                style={{
+                  scrollMarginTop: '0px',
+                  scrollPaddingTop: '0px'
                 }}
-                className="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-full text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
               >
-                Clear All
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Content Section */}
-        <div className="px-4 sm:px-6 lg:px-8">
-          <div className="max-w-7xl mx-auto">
-            {/* Blog Grid */}
-            <div className="space-y-12">
-              {loading && blogs.length === 0 ? (
-                // Enhanced Loading Skeleton
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 auto-rows-fr">
-                  {[...Array(6)].map((_, i) => (
-                    <div 
-                      key={i}
-                      className="overflow-hidden rounded-2xl border h-[420px]"
-                      style={{ 
-                        backgroundColor: colors.card, 
-                        borderColor: colors.border 
-                      }}
-                    >
-                      <div className="aspect-[16/10] bg-gray-300 dark:bg-gray-700"></div>
-                      <div className="p-6 space-y-4">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 bg-gray-300 dark:bg-gray-700 rounded-full"></div>
-                          <div className="flex-1 space-y-2">
-                            <div className="h-4 bg-gray-300 dark:bg-gray-700 rounded w-1/3"></div>
-                            <div className="h-3 bg-gray-300 dark:bg-gray-700 rounded w-1/2"></div>
-                          </div>
+            {loading && blogs.length === 0 ? (
+              // Loading Skeleton
+              <div className="space-y-6">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+                    <div className="flex gap-6">
+                      <div className="flex-1 space-y-4">
+                        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-3/4"></div>
+                        <div className="flex items-center space-x-2">
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-20"></div>
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-24"></div>
                         </div>
-                        <div className="space-y-3">
-                          <div className="h-6 bg-gray-300 dark:bg-gray-700 rounded"></div>
-                          <div className="h-4 bg-gray-300 dark:bg-gray-700 rounded w-3/4"></div>
-                          <div className="h-16 bg-gray-300 dark:bg-gray-700 rounded"></div>
-                        </div>
-                        <div className="flex justify-between">
-                          <div className="flex space-x-4">
-                            <div className="h-4 bg-gray-300 dark:bg-gray-700 rounded w-8"></div>
-                            <div className="h-4 bg-gray-300 dark:bg-gray-700 rounded w-8"></div>
-                          </div>
-                          <div className="h-4 bg-gray-300 dark:bg-gray-700 rounded w-4"></div>
+                        <div className="space-y-2">
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-5/6"></div>
                         </div>
                       </div>
+                      <div className="w-32 h-24 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse"></div>
                     </div>
+                  </div>
+                ))}
+              </div>
+            ) : blogs.length > 0 ? (
+              <>
+                {/* Blogs List */}
+                <div className="space-y-6">
+                  {blogs.map(blog => (
+                    <BlogCard 
+                      key={blog.$id} 
+                      blog={blog}
+                      user={user}
+                      bookmarkedBlogs={bookmarkedBlogs}
+                      commentsData={commentsData}
+                      commentInputs={commentInputs}
+                      loadingComments={loadingComments}
+                      handleBookmark={handleBookmark}
+                      handleComment={handleComment}
+                      handleInputChange={handleInputChange}
+                      fetchBlogComments={fetchBlogComments}
+                      formatDate={formatDate}
+                    />
                   ))}
                 </div>
-              ) : (featuredBlogs.length > 0 || filteredBlogs.length > 0) ? (
-                <>
-                  {/* Featured Blogs Section */}
-                  {featuredBlogs.length > 0 && !searchQuery && selectedCategory === 'All' && (
-                    <div className="mb-16">
-                      <div className="flex items-center space-x-3 mb-8">
-                        <FaStar className="text-yellow-500 text-xl" />
-                        <h2 className="text-3xl font-bold bg-gradient-to-r from-yellow-500 to-orange-500 bg-clip-text text-transparent">
-                          Featured Stories
-                        </h2>
-                      </div>
-                      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 auto-rows-max">
-                        {featuredBlogs.map((blog, index) => (
-                          <div key={`featured-${blog.$id}`} className={index === 0 ? 'lg:col-span-2 lg:row-span-2' : ''}>
-                            <BlogCard blog={blog} featured={index === 0} />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Regular Blogs Section */}
-                  {filteredBlogs.length > 0 && (
-                    <div>
-                      <div className="flex items-center justify-between mb-8">
-                        <h2 className="text-3xl font-bold" style={{ color: colors.foreground }}>
-                          {searchQuery || selectedCategory !== 'All' ? 'Search Results' : 'All Stories'}
-                        </h2>
-                        <span className="text-sm opacity-60" style={{ color: colors.foreground }}>
-                          {filteredBlogs.length} {filteredBlogs.length === 1 ? 'story' : 'stories'} found
-                        </span>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 auto-rows-fr">
-                        {filteredBlogs.map(blog => (
-                          <BlogCard key={blog.$id} blog={blog} />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {hasMore && !searchQuery && selectedCategory === 'All' && (
-                    <div className="text-center pt-12">
-                      <button
-                        onClick={() => {
-                          setPage(prev => prev + 1);
-                          fetchBlogs();
-                        }}
-                        disabled={loading}
-                        className="group px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-2xl hover:from-blue-600 hover:to-purple-700 transition-all duration-300 disabled:opacity-50 font-semibold shadow-lg hover:shadow-xl hover:scale-105"
-                      >
-                        <span className="flex items-center space-x-2">
-                          <span>{loading ? 'Loading More Stories...' : 'Load More Stories'}</span>
-                          {!loading && <FaPlus className="group-hover:rotate-180 transition-transform duration-300" />}
-                        </span>
-                      </button>
-                    </div>
-                  )}
-                </>
-              ) : (
-                // Enhanced Empty State
-                <div className="text-center py-20">
-                  <div className="w-32 h-32 mx-auto mb-8 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700 rounded-full flex items-center justify-center">
-                    <div className="text-6xl opacity-40">📝</div>
-                  </div>
-                  <h3 className="text-2xl font-bold mb-4" style={{ color: colors.foreground }}>
-                    {searchQuery || selectedCategory !== 'All' ? 'No stories match your search' : 'No stories found'}
-                  </h3>
-                  <p className="opacity-70 text-lg mb-8 max-w-md mx-auto" style={{ color: colors.foreground }}>
-                    {searchQuery || selectedCategory !== 'All' 
-                      ? 'Try adjusting your search terms or browse all categories'
-                      : 'Be the first to share your amazing story with the community'
-                    }
-                  </p>
-                  {searchQuery || selectedCategory !== 'All' ? (
+                
+                {hasMore && (
+                  <div className="text-center pt-8">
                     <button
                       onClick={() => {
-                        setSearchQuery('');
-                        setSelectedCategory('All');
+                        setPage(prev => prev + 1);
+                        fetchBlogs();
                       }}
-                      className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:from-blue-600 hover:to-purple-700 transition-all duration-300 font-semibold shadow-lg"
+                      disabled={loading}
+                      className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
                     >
-                      Browse All Stories
+                      {loading ? 'Loading...' : 'Load More'}
                     </button>
-                  ) : (
-                    <Link href="/create-blog">
-                      <button className="px-6 py-3 bg-gradient-to-r from-green-500 to-blue-600 text-white rounded-xl hover:from-green-600 hover:to-blue-700 transition-all duration-300 font-semibold shadow-lg">
-                        Write Your First Story
-                      </button>
-                    </Link>
-                  )}
-                </div>
-              )}
+                  </div>
+                )}
+              </>
+            ) : (
+              // Empty State
+              <div className="text-center py-20">
+                <div className="text-6xl mb-4">📝</div>
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                  No stories found
+                </h3>
+                <p className="text-gray-600 dark:text-gray-400 mb-6">
+                  Be the first to share your story with the community
+                </p>
+                <Link href="/create-blog">
+                  <button className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+                    Write Your First Story
+                  </button>
+                </Link>
+              </div>
+            )}
+              </div>
             </div>
           </div>
         </div>
@@ -612,7 +582,7 @@ export default function BlogsPage() {
         <div className="fixed bottom-8 right-8 z-50">
           <Link href="/create-blog">
             <button 
-              className="group w-16 h-16 bg-gradient-to-r from-green-500 to-blue-600 text-white rounded-full shadow-2xl hover:shadow-3xl transition-all duration-300 flex items-center justify-center text-2xl hover:scale-110"
+              className="group w-16 h-16 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-2xl hover:shadow-3xl transition-all duration-300 flex items-center justify-center text-2xl hover:scale-110"
               title="Write a new story"
             >
               <FaPlus className="group-hover:rotate-180 transition-transform duration-300" />

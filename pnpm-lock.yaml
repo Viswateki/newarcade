@@ -11,6 +11,9 @@ importers:
       '@radix-ui/react-navigation-menu':
         specifier: ^1.2.14
         version: 1.2.14(@types/react-dom@19.1.8(@types/react@19.1.11))(@types/react@19.1.11)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      '@radix-ui/react-slot':
+        specifier: ^1.2.3
+        version: 1.2.3(@types/react@19.1.11)(react@19.1.0)
       appwrite:
         specifier: ^19.0.0
         version: 19.0.0
@@ -35,6 +38,9 @@ importers:
       next:
         specifier: 15.5.0
         version: 15.5.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      node-appwrite:
+        specifier: ^19.0.0
+        version: 19.0.0
       postprocessing:
         specifier: ^6.37.7
         version: 6.37.7(three@0.179.1)
@@ -1898,6 +1904,12 @@ packages:
         optional: true
       sass:
         optional: true
+
+  node-appwrite@19.0.0:
+    resolution: {integrity: sha512-Uk55z9OBRiI04GTo+WA5UsHzohtTmWUgzut5Q5lK4n5gWDC1H5HhSJdGJ0qk5RpW1OVvzU6RU9LNnZ4UWpiY+Q==}
+
+  node-fetch-native-with-agent@1.7.2:
+    resolution: {integrity: sha512-5MaOOCuJEvcckoz7/tjdx1M6OusOY6Xc5f459IaruGStWnKzlI1qpNgaAwmn4LmFYcsSlj+jBMk84wmmRxfk5g==}
 
   object-assign@4.1.1:
     resolution: {integrity: sha512-rJgTQnkUnH1sFw8yT6VSU3zD3sWmu6sZhIseY8VX+GRu3P6F7Fu+JNDoXfklElbLJSnc3FUQHVe4cU5hj+BcUg==}
@@ -4344,6 +4356,12 @@ snapshots:
     transitivePeerDependencies:
       - '@babel/core'
       - babel-plugin-macros
+
+  node-appwrite@19.0.0:
+    dependencies:
+      node-fetch-native-with-agent: 1.7.2
+
+  node-fetch-native-with-agent@1.7.2: {}
 
   object-assign@4.1.1: {}
 
