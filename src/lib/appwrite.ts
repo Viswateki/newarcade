@@ -14,7 +14,8 @@ export const DATABASE_ID = process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!;
 export const BLOGS_COLLECTION_ID = process.env.NEXT_PUBLIC_APPWRITE_BLOGS_COLLECTION_ID!;
 export const USER_INTERACTIONS_COLLECTION_ID = process.env.NEXT_PUBLIC_APPWRITE_USER_INTERACTION_COLLECTION_ID!;
 export const TOOLS_COLLECTION_ID = process.env.NEXT_PUBLIC_APPWRITE_TOOLS_COLLECTION_ID!;
-export const STORAGE_BUCKET_ID = process.env.NEXT_PUBLIC_APPWRITE_TOOLS_STORAGE_COLLECTION_ID!;
+export const STORAGE_BUCKET_ID = process.env.NEXT_PUBLIC_APPWRITE_STORAGE_BUCKET_ID!;
+export const TOOLS_STORAGE_BUCKET_ID = process.env.NEXT_PUBLIC_APPWRITE_TOOLS_STORAGE_COLLECTION_ID!;
 
 // Helper function to get image URL from Appwrite storage
 export const getImageUrl = (fileIdOrUrl: string): string => {
@@ -37,16 +38,43 @@ export const getImageUrl = (fileIdOrUrl: string): string => {
     return `${process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT}/storage/buckets/${STORAGE_BUCKET_ID}/files/${fileIdOrUrl}/view?project=${process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID}`;
 };
 
-// Helper function specifically for tool images with fallback logic
-export const getToolImageUrl = (tool: Tool): string => {
-    // Priority order: logo -> imageurl -> toolImage -> fallbackIcon
-    const imageId = tool.logo || 
-                   tool.imageurl || 
-                   tool.toolImage || 
-                   tool.fallbackIcon;
+// Helper function to get tool image URL from tools storage bucket
+export const getToolImageUrl = (fileIdOrUrl: string): string => {
+    // Handle empty or null values
+    if (!fileIdOrUrl || fileIdOrUrl.trim() === '') {
+        return '';
+    }
     
-    if (imageId) {
-        return getImageUrl(imageId);
+    // If it's already a full URL (http/https), return as is
+    if (fileIdOrUrl.startsWith('http://') || fileIdOrUrl.startsWith('https://')) {
+        return fileIdOrUrl;
+    }
+    
+    // If it's a data URL (base64 encoded image), return as is
+    if (fileIdOrUrl.startsWith('data:')) {
+        return fileIdOrUrl;
+    }
+    
+    // For Appwrite storage file IDs, construct the tools storage URL
+    return `${process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT}/storage/buckets/${TOOLS_STORAGE_BUCKET_ID}/files/${fileIdOrUrl}/view?project=${process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID}`;
+};
+
+// Helper function specifically for tool images with fallback logic
+export const getToolImageUrlFromTool = (tool: Tool): string => {
+    // Priority order: imageUrl (current database field) -> logo -> imageurl (legacy) -> toolImage -> fallbackIcon
+    const imageSource = tool.imageUrl || 
+                       tool.logo || 
+                       tool.imageurl ||
+                       tool.toolImage || 
+                       tool.fallbackIcon;
+    
+    if (imageSource) {
+        // If it's already a full URL (which it should be from Appwrite storage), return as is
+        if (imageSource.startsWith('http://') || imageSource.startsWith('https://')) {
+            return imageSource;
+        }
+        // If it's a file ID, construct the URL
+        return getToolImageUrl(imageSource);
     }
     
     // Fallback to placeholder with first letter
@@ -106,6 +134,9 @@ export interface Comment {
     user_name: string;
     user_avatar?: string;
     content: string;
+    parent_comment_id?: string; // For replies
+    reply_to_user?: string; // Username being replied to
+    client_request_id?: string; // For duplicate prevention
     $createdAt?: string;
     $updatedAt?: string;
 }
@@ -116,10 +147,18 @@ export interface Tool {
     name: string;
     description: string;
     category: string;
-    rating?: number;
+    icon?: string; // Text icon from database
+    imageUrl?: string; // Image URL from database (matches actual schema)
+    link?: string; // Website link (matches actual schema)
+    submittedBy?: string; // User who submitted
+    status?: string; // Approval status
+    views?: number; // View count
+    rating?: number; // Rating score
+    reviewCount?: number; // Number of reviews (matches actual schema)
+    // Legacy fields for compatibility
     reviews?: number;
     pricing?: string;
-    tags?: string[]; // Array of tags
+    tags?: string[];
     featured?: boolean;
     new?: boolean;
     logo?: string;
@@ -128,11 +167,11 @@ export interface Tool {
     toolImage?: string;
     logoBackgroundColor?: string;
     fallbackIcon?: string;
-    imageurl?: string; // Logo image URL from the collection
+    imageurl?: string; // Legacy field
     $createdAt?: string;
     $updatedAt?: string;
     // Computed properties
-    computedImageUrl?: string; // Generated image URL from Appwrite storage
+    computedImageUrl?: string;
 }
 
 export { client, ID };

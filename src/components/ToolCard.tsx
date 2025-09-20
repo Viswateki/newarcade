@@ -1,5 +1,5 @@
 import React from 'react';
-import { Tool } from '@/lib/appwrite';
+import { Tool, getToolImageUrlFromTool } from '@/lib/appwrite';
 import { 
   FiStar, 
   FiExternalLink, 
@@ -25,8 +25,22 @@ const ToolCard: React.FC<ToolCardProps> = ({ tool, viewMode, onToolClick }) => {
           <div className="flex items-center gap-6">
             {/* Tool Logo */}
             <div className="flex-shrink-0">
-              <div className="w-16 h-16 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-                <span className="text-2xl">{tool.logo || tool.fallbackIcon || '🔧'}</span>
+              <div className="w-16 h-16 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center overflow-hidden">
+                {(tool.logo || tool.imageurl || tool.toolImage) ? (
+                  <img 
+                    src={getToolImageUrlFromTool(tool)}
+                    alt={`${tool.name} logo`}
+                    className="w-full h-full object-contain"
+                    onError={(e) => {
+                      // Fallback to text icon if image fails to load
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                      target.parentElement!.innerHTML = `<span class="text-2xl">${tool.fallbackIcon || '🔧'}</span>`;
+                    }}
+                  />
+                ) : (
+                  <span className="text-2xl">{tool.fallbackIcon || '🔧'}</span>
+                )}
               </div>
             </div>
 
@@ -73,8 +87,9 @@ const ToolCard: React.FC<ToolCardProps> = ({ tool, viewMode, onToolClick }) => {
                     className="flex items-center gap-2 px-4 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors font-medium"
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (tool.websiteLink) {
-                        window.open(tool.websiteLink, '_blank');
+                      const websiteUrl = tool.websiteLink || tool.link;
+                      if (websiteUrl) {
+                        window.open(websiteUrl, '_blank');
                       }
                     }}
                   >
@@ -99,8 +114,22 @@ const ToolCard: React.FC<ToolCardProps> = ({ tool, viewMode, onToolClick }) => {
       <div className="p-6">
         {/* Header with logo and badges */}
         <div className="flex items-start justify-between mb-4">
-          <div className="w-14 h-14 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-            <span className="text-2xl">{tool.logo || tool.fallbackIcon || '🔧'}</span>
+          <div className="w-14 h-14 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center overflow-hidden">
+            {(tool.logo || tool.imageurl || tool.toolImage) ? (
+              <img 
+                src={getToolImageUrlFromTool(tool)}
+                alt={`${tool.name} logo`}
+                className="w-full h-full object-contain"
+                onError={(e) => {
+                  // Fallback to text icon if image fails to load
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  target.parentElement!.innerHTML = `<span class="text-2xl">${tool.fallbackIcon || '🔧'}</span>`;
+                }}
+              />
+            ) : (
+              <span className="text-2xl">{tool.fallbackIcon || '🔧'}</span>
+            )}
           </div>
           {tool.featured && (
             <span className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs font-medium rounded">
@@ -142,8 +171,9 @@ const ToolCard: React.FC<ToolCardProps> = ({ tool, viewMode, onToolClick }) => {
               className="flex items-center gap-2 px-4 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors font-medium"
               onClick={(e) => {
                 e.stopPropagation();
-                if (tool.websiteLink) {
-                  window.open(tool.websiteLink, '_blank');
+                const websiteUrl = tool.websiteLink || tool.link;
+                if (websiteUrl) {
+                  window.open(websiteUrl, '_blank');
                 }
               }}
             >

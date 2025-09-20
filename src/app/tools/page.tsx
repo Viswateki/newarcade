@@ -4,7 +4,7 @@ import NavigationWrapper from '@/components/NavigationWrapper';
 import GradientText from '@/components/GradientText';
 import { useTheme } from '@/contexts/ThemeContext';
 import { toolsService } from '@/lib/toolsService';
-import { Tool, getToolImageUrl } from '@/lib/appwrite';
+import { Tool, getToolImageUrlFromTool } from '@/lib/appwrite';
 
 const BrowseToolsPage = () => {
   const { theme, colors } = useTheme();
@@ -809,7 +809,7 @@ const ToolCard: React.FC<ToolCardProps> = ({ tool, onToolClick }) => {
     
     if (logoUrl) {
       // Use the getToolImageUrl helper function
-      const computedUrl = getToolImageUrl(tool);
+      const computedUrl = getToolImageUrlFromTool(tool);
       console.log('Using fallback computed URL for', tool.name, computedUrl);
       return computedUrl;
     }

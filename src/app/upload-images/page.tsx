@@ -57,7 +57,7 @@ export default function ImageUploadPage() {
             <ul className="space-y-2 text-blue-800 dark:text-blue-200">
               <li>• Drag and drop multiple images into the upload area</li>
               <li>• Or click "browse files" to select images from your computer</li>
-              <li>• Supported formats: JPG, PNG, GIF, WebP, BMP, SVG</li>
+              <li>• Supported formats: JPG/JPEG (auto-converts to PNG), PNG, GIF, WebP, BMP, SVG</li>
               <li>• Maximum file size: 10MB per image</li>
               <li>• Maximum files: 50 images at once</li>
               <li>• View upload progress and results in real-time</li>
@@ -72,6 +72,7 @@ export default function ImageUploadPage() {
             </h3>
             <ul className="space-y-2 text-yellow-800 dark:text-yellow-200">
               <li>• Images are uploaded to your Appwrite storage bucket</li>
+              <li>• JPEG files are automatically converted to PNG format before upload</li>
               <li>• Each uploaded image gets a unique file ID</li>
               <li>• You can use the file IDs in your database records</li>
               <li>• The image URLs can be used directly in your application</li>

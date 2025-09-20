@@ -1,4 +1,4 @@
-import { databases, DATABASE_ID, TOOLS_COLLECTION_ID, Tool, getToolImageUrl } from './appwrite';
+import { databases, DATABASE_ID, TOOLS_COLLECTION_ID, Tool, getToolImageUrlFromTool } from './appwrite';
 import { Query } from 'appwrite';
 import { storageService } from './storageService';
 
@@ -107,7 +107,7 @@ export class ToolsService {
         return {
             ...tool,
             // Add a computed property for the image URL
-            computedImageUrl: getToolImageUrl(tool)
+            computedImageUrl: getToolImageUrlFromTool(tool)
         };
     }
 

@@ -59,29 +59,82 @@ const MultiImageUploader: React.FC<MultiImageUploaderProps> = ({
     return null;
   };
 
+  // Convert JPEG files to PNG
+  const convertJpegToPng = (file: File): Promise<File> => {
+    return new Promise((resolve, reject) => {
+      if (!file.type.includes('jpeg') && !file.type.includes('jpg')) {
+        resolve(file);
+        return;
+      }
+
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+
+      img.onload = () => {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        
+        if (ctx) {
+          // Fill with white background (PNG transparency alternative)
+          ctx.fillStyle = 'white';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          
+          // Draw the image
+          ctx.drawImage(img, 0, 0);
+          
+          // Convert to PNG blob
+          canvas.toBlob((blob) => {
+            if (blob) {
+              const convertedFile = new File(
+                [blob], 
+                file.name.replace(/\.(jpe?g)$/i, '.png'), 
+                { type: 'image/png' }
+              );
+              resolve(convertedFile);
+            } else {
+              reject(new Error('Failed to convert image'));
+            }
+          }, 'image/png', 0.95);
+        } else {
+          reject(new Error('Canvas context not available'));
+        }
+      };
+
+      img.onerror = () => reject(new Error('Failed to load image'));
+      img.src = URL.createObjectURL(file);
+    });
+  };
+
   // Handle file selection
-  const handleFiles = (files: FileList | File[]) => {
+  const handleFiles = async (files: FileList | File[]) => {
     const fileArray = Array.from(files);
-    const validFiles: File[] = [];
+    const processedFiles: File[] = [];
     const errors: string[] = [];
 
-    fileArray.forEach(file => {
+    for (const file of fileArray) {
       const error = validateFile(file);
       if (error) {
         errors.push(`${file.name}: ${error}`);
-      } else if (selectedFiles.length + validFiles.length < maxFiles) {
-        validFiles.push(file);
+      } else if (selectedFiles.length + processedFiles.length < maxFiles) {
+        try {
+          // Convert JPEG to PNG if needed
+          const processedFile = await convertJpegToPng(file);
+          processedFiles.push(processedFile);
+        } catch (conversionError) {
+          errors.push(`${file.name}: Failed to convert - ${conversionError}`);
+        }
       } else {
         errors.push(`${file.name}: Maximum ${maxFiles} files allowed`);
       }
-    });
+    }
 
     if (errors.length > 0) {
       alert('Some files were rejected:\n' + errors.join('\n'));
     }
 
-    if (validFiles.length > 0) {
-      setSelectedFiles(prev => [...prev, ...validFiles]);
+    if (processedFiles.length > 0) {
+      setSelectedFiles(prev => [...prev, ...processedFiles]);
     }
   };
 
@@ -96,18 +149,18 @@ const MultiImageUploader: React.FC<MultiImageUploaderProps> = ({
     setIsDragOver(false);
   };
 
-  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+  const handleDrop = async (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragOver(false);
     
     const files = e.dataTransfer.files;
-    handleFiles(files);
+    await handleFiles(files);
   };
 
   // File input change handler
-  const handleFileInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleFileInputChange = async (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      handleFiles(e.target.files);
+      await handleFiles(e.target.files);
     }
   };
 
@@ -222,7 +275,7 @@ const MultiImageUploader: React.FC<MultiImageUploaderProps> = ({
               </p>
             </div>
             <p className="text-sm text-gray-500">
-              Supported: JPG, PNG, GIF, WebP, BMP, SVG
+              Supported: JPG/JPEG (auto-converts to PNG), PNG, GIF, WebP, BMP, SVG
             </p>
           </div>
           

@@ -399,17 +399,36 @@ class BlogService {
     }
 
     // COMMENT FUNCTIONALITY
-    async addComment(blogId: string, userId: string, content: string, userName?: string, userAvatar?: string): Promise<Comment> {
+    async addComment(
+        blogId: string, 
+        userId: string, 
+        content: string, 
+        userName?: string, 
+        userAvatar?: string,
+        parentCommentId?: string,
+        replyToUser?: string
+    ): Promise<Comment> {
         try {
+            console.log('Adding comment with simple approach');
+            
+            // Add a timestamp to ensure uniqueness
+            const timestamp = Date.now();
+            
             const commentData = {
                 user_id: userId,
                 blog_id: blogId,
                 interaction_type: 'comment' as const,
                 content,
                 user_name: userName || '',
-                user_avatar: userAvatar || ''
+                user_avatar: userAvatar || '',
+                parent_comment_id: parentCommentId || '',
+                reply_to_user: replyToUser || '',
+                timestamp: timestamp.toString()
             };
 
+            console.log('Creating comment with ID.unique() and timestamp:', timestamp);
+            
+            // Use the correct legacy syntax for Appwrite v19
             const response = await databases.createDocument(
                 DATABASE_ID,
                 USER_INTERACTIONS_COLLECTION_ID,
@@ -417,32 +436,109 @@ class BlogService {
                 commentData
             );
 
-            // Increment blog comments count
-            const blog = await this.getBlogById(blogId);
-            await this.updateBlog(blogId, { comments_count: blog.comments_count + 1 });
+            // Success! Update blog comment count
+            try {
+                const blog = await this.getBlogById(blogId);
+                await this.updateBlog(blogId, { comments_count: blog.comments_count + 1 });
+            } catch (blogError) {
+                console.warn('Failed to update blog comment count:', blogError);
+            }
 
+            console.log('Comment created successfully with ID:', response.$id);
             return response as unknown as Comment;
-        } catch (error) {
+            
+        } catch (error: any) {
             console.error('Error adding comment:', error);
-            throw error;
+            console.error('Error details:', {
+                message: error.message,
+                code: error.code,
+                type: error.type,
+                response: error.response
+            });
+            
+            // If it's a duplicate ID error, try one more time with a completely new approach
+            if (error.message?.includes('already exists') || error.message?.includes('Document with the requested ID already exists')) {
+                console.warn('Duplicate ID detected, retrying with manual ID generation...');
+                try {
+                    const manualId = `comment_${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${userId.substr(-4)}`;
+                    console.log('Attempting retry with manual ID:', manualId);
+                    
+                    // Recreate comment data for retry
+                    const retryCommentData = {
+                        user_id: userId,
+                        blog_id: blogId,
+                        interaction_type: 'comment' as const,
+                        content,
+                        user_name: userName || '',
+                        user_avatar: userAvatar || '',
+                        parent_comment_id: parentCommentId || '',
+                        reply_to_user: replyToUser || '',
+                        timestamp: Date.now().toString()
+                    };
+                    
+                    const retryResponse = await databases.createDocument(
+                        DATABASE_ID,
+                        USER_INTERACTIONS_COLLECTION_ID,
+                        manualId,
+                        retryCommentData
+                    );
+                    
+                    console.log('Retry successful with manual ID:', retryResponse.$id);
+                    
+                    // Success! Update blog comment count
+                    try {
+                        const blog = await this.getBlogById(blogId);
+                        await this.updateBlog(blogId, { comments_count: blog.comments_count + 1 });
+                    } catch (blogError) {
+                        console.warn('Failed to update blog comment count on retry:', blogError);
+                    }
+                    
+                    return retryResponse as unknown as Comment;
+                } catch (retryError: any) {
+                    console.error('Retry also failed:', retryError);
+                    throw new Error(`Failed to add comment after retry: ${retryError.message}`);
+                }
+            }
+            
+            throw new Error(`Failed to add comment: ${error.message}`);
         }
     }
 
     async getComments(blogId: string): Promise<Comment[]> {
         try {
-            const response = await databases.listDocuments(
-                DATABASE_ID,
-                USER_INTERACTIONS_COLLECTION_ID,
-                [
+            const response = await databases.listDocuments({
+                databaseId: DATABASE_ID,
+                collectionId: USER_INTERACTIONS_COLLECTION_ID,
+                queries: [
                     Query.equal('blog_id', blogId),
                     Query.equal('interaction_type', 'comment'),
                     Query.orderDesc('$createdAt')
                 ]
-            );
+            });
 
             return response.documents as unknown as Comment[];
         } catch (error) {
             console.error('Error fetching comments:', error);
+            throw error;
+        }
+    }
+
+    async deleteComment(commentId: string, blogId: string): Promise<void> {
+        try {
+            // Delete the comment document using object syntax
+            await databases.deleteDocument({
+                databaseId: DATABASE_ID,
+                collectionId: USER_INTERACTIONS_COLLECTION_ID,
+                documentId: commentId
+            });
+
+            // Decrement blog comments count
+            const blog = await this.getBlogById(blogId);
+            if (blog.comments_count > 0) {
+                await this.updateBlog(blogId, { comments_count: blog.comments_count - 1 });
+            }
+        } catch (error) {
+            console.error('Error deleting comment:', error);
             throw error;
         }
     }

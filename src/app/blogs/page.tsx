@@ -10,8 +10,8 @@ import {
   FaEye, 
   FaHeart, 
   FaComment,
-  FaBookmark,
-  FaPlus
+  FaPlus,
+  FaShare
 } from 'react-icons/fa';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -20,27 +20,43 @@ import Link from 'next/link';
 const BlogCard = ({ 
   blog, 
   user, 
-  bookmarkedBlogs, 
   commentsData, 
   commentInputs, 
-  loadingComments, 
-  handleBookmark, 
+  loadingComments,
+  replyingTo,
+  replyInputs,
+  showAllComments,
   handleComment, 
   handleInputChange, 
   fetchBlogComments, 
-  formatDate 
+  formatDate,
+  handleReplyToggle,
+  handleReplyInputChange,
+  handleReplySubmit,
+  handleDeleteComment,
+  handleCancelReply,
+  handleToggleShowComments,
+  handleReplyToReply
 }: { 
   blog: Blog; 
   user: any; 
-  bookmarkedBlogs: Set<string>; 
   commentsData: {[blogId: string]: Comment[]};
   commentInputs: {[blogId: string]: string};
   loadingComments: {[blogId: string]: boolean};
-  handleBookmark: (blogId: string) => void;
+  replyingTo: {[commentId: string]: boolean};
+  replyInputs: {[commentId: string]: string};
+  showAllComments: {[blogId: string]: boolean};
   handleComment: (blogId: string) => void;
   handleInputChange: (blogId: string, value: string) => void;
   fetchBlogComments: (blogId: string) => void;
   formatDate: (dateString: string) => string;
+  handleReplyToggle: (commentId: string) => void;
+  handleReplyInputChange: (commentId: string, value: string) => void;
+  handleReplySubmit: (blogId: string, parentCommentId: string) => void;
+  handleDeleteComment: (commentId: string, blogId: string) => void;
+  handleCancelReply: (commentId: string) => void;
+  handleToggleShowComments: (blogId: string) => void;
+  handleReplyToReply: (parentCommentId: string, replyToUserName: string) => void;
 }) => {
   return (
     <article className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 hover:shadow-md transition-all duration-200">
@@ -118,25 +134,11 @@ const BlogCard = ({
                 <span className="text-sm">{blog.comments_count || 0}</span>
               </button>
 
-              <button className="flex items-center space-x-1 text-gray-500 dark:text-gray-400 hover:text-yellow-500">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-                </svg>
-                <span className="text-sm">{blog.likes || 40}</span>
+              <button className="flex items-center space-x-1 text-gray-500 dark:text-gray-400 hover:text-green-500">
+                <FaShare className="w-4 h-4" />
+                <span className="text-sm">Share</span>
               </button>
             </div>
-
-            {/* Right side - Bookmark */}
-            <button
-              onClick={() => handleBookmark(blog.$id!)}
-              className={`transition-colors ${
-                bookmarkedBlogs.has(blog.$id!) 
-                  ? 'text-yellow-500 hover:text-yellow-600' 
-                  : 'text-gray-400 hover:text-yellow-500'
-              }`}
-            >
-              <FaBookmark className={`w-4 h-4 ${bookmarkedBlogs.has(blog.$id!) ? 'fill-current' : ''}`} />
-            </button>
           </div>
         </div>
 
@@ -154,44 +156,8 @@ const BlogCard = ({
 
       {/* Comments Section */}
       <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700">
-        {/* Existing Comments */}
-        {commentsData[blog.$id!] && commentsData[blog.$id!].length > 0 && (
-          <div className="mb-4 space-y-3">
-            {commentsData[blog.$id!].slice(0, 2).map((comment: Comment) => (
-              <div key={comment.$id} className="flex items-start space-x-3">
-                <div className="w-6 h-6 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center">
-                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                    {comment.user_name?.charAt(0).toUpperCase() || 'A'}
-                  </span>
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">
-                      {comment.user_name || 'Anonymous'}
-                    </span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                      {new Date(comment.$createdAt!).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">
-                    {comment.content}
-                  </p>
-                </div>
-              </div>
-            ))}
-            {commentsData[blog.$id!].length > 2 && (
-              <button 
-                className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-                onClick={() => fetchBlogComments(blog.$id!)}
-              >
-                Show more comments
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Comment Input */}
-        <div className="flex items-center space-x-3">
+        {/* Comment Input at the top */}
+        <div className="flex items-center space-x-3 mb-6">
           <div className="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center">
             <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
               {user?.name?.charAt(0).toUpperCase() || 'A'}
@@ -221,6 +187,205 @@ const BlogCard = ({
             </button>
           </div>
         </div>
+
+        {/* Comments heading */}
+        {commentsData[blog.$id!] && commentsData[blog.$id!].length > 0 && (
+          <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">
+            Comments ({commentsData[blog.$id!].length})
+          </h4>
+        )}
+
+        {/* Existing Comments */}
+        {commentsData[blog.$id!] && commentsData[blog.$id!].length > 0 ? (
+          <div className="mb-4 space-y-4">
+            {commentsData[blog.$id!]
+              .filter(comment => !comment.parent_comment_id) // Only show main comments first
+              .slice(0, showAllComments[blog.$id!] ? undefined : 3) // Show 3 initially, all when expanded
+              .map((comment: Comment) => (
+              <div key={comment.$id} className="space-y-3">
+                {/* Main Comment */}
+                <div className="flex items-start space-x-3">
+                  <div className="w-6 h-6 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center">
+                    <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                      {comment.user_name?.charAt(0).toUpperCase() || 'A'}
+                    </span>
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">
+                        {comment.user_name || 'Anonymous'}
+                      </span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        {new Date(comment.$createdAt!).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-700 dark:text-gray-300 mt-1 mb-2">
+                      {comment.content}
+                    </p>
+                    
+                    {/* Comment Actions */}
+                    <div className="flex items-center space-x-4">
+                      <button 
+                        onClick={() => handleReplyToggle(comment.$id!)}
+                        className="text-xs text-gray-500 dark:text-gray-400 hover:text-blue-500 transition-colors"
+                      >
+                        Reply
+                      </button>
+                      <button className="text-xs text-gray-500 dark:text-gray-400 hover:text-red-500 transition-colors">
+                        Like
+                      </button>
+                      {comment.user_id === user?.$id && (
+                        <button 
+                          onClick={() => handleDeleteComment(comment.$id!, blog.$id!)}
+                          className="text-xs text-gray-500 dark:text-gray-400 hover:text-red-500 transition-colors"
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Replies to this comment - YouTube style */}
+                    {commentsData[blog.$id!]
+                      .filter(reply => reply.parent_comment_id === comment.$id)
+                      .map((reply: Comment) => (
+                        <div key={reply.$id} className="mt-3 ml-6 pl-4 border-l-2 border-gray-200 dark:border-gray-600">
+                          <div className="flex items-start space-x-3">
+                            <div className="w-6 h-6 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center">
+                              <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                                {reply.user_name?.charAt(0).toUpperCase() || 'A'}
+                              </span>
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-2">
+                                <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                  {reply.user_name || 'Anonymous'}
+                                </span>
+                                <span className="text-xs text-gray-500 dark:text-gray-400">
+                                  {new Date(reply.$createdAt!).toLocaleDateString()}
+                                </span>
+                              </div>
+                              <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">
+                                {reply.reply_to_user && reply.reply_to_user !== comment.user_name && (
+                                  <span className="text-blue-600 dark:text-blue-400 font-medium">
+                                    @{reply.reply_to_user}{' '}
+                                  </span>
+                                )}
+                                {reply.content}
+                              </p>
+                              
+                              {/* Reply Actions - YouTube style */}
+                              <div className="flex items-center space-x-4 mt-2">
+                                <button 
+                                  onClick={() => handleReplyToReply(comment.$id!, reply.user_name)}
+                                  className="text-xs text-gray-500 dark:text-gray-400 hover:text-blue-500 transition-colors font-medium"
+                                >
+                                  Reply
+                                </button>
+                                <button className="text-xs text-gray-500 dark:text-gray-400 hover:text-red-500 transition-colors">
+                                  👍
+                                </button>
+                                <button className="text-xs text-gray-500 dark:text-gray-400 hover:text-red-500 transition-colors">
+                                  👎
+                                </button>
+                                {reply.user_id === user?.$id && (
+                                  <button 
+                                    onClick={() => handleDeleteComment(reply.$id!, blog.$id!)}
+                                    className="text-xs text-gray-500 dark:text-gray-400 hover:text-red-500 transition-colors"
+                                  >
+                                    Delete
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+
+                    {/* Reply Input Form */}
+                    {replyingTo[comment.$id!] && (
+                      <div className="mt-3 ml-4 border-l-2 border-gray-200 dark:border-gray-600 pl-4">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-6 h-6 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center">
+                            <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                              {user?.name?.charAt(0).toUpperCase() || 'A'}
+                            </span>
+                          </div>
+                          <div className="flex-1 relative">
+                            <input
+                              type="text"
+                              placeholder={"Reply to " + (comment.user_name || 'Anonymous') + "..."}
+                              value={replyInputs[comment.$id!] || ''}
+                              onChange={(e) => handleReplyInputChange(comment.$id!, e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                  e.preventDefault();
+                                  handleReplySubmit(blog.$id!, comment.$id!);
+                                }
+                              }}
+                              disabled={loadingComments["reply-" + comment.$id]}
+                              data-reply-id={comment.$id}
+                              className="w-full px-3 py-2 pr-20 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
+                              autoFocus
+                            />
+                            <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center space-x-1">
+                              <button 
+                                onClick={() => handleCancelReply(comment.$id!)}
+                                className="p-1 text-gray-500 hover:text-gray-700 transition-colors"
+                                title="Cancel reply"
+                              >
+                                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                                </svg>
+                              </button>
+                              <button 
+                                onClick={() => handleReplySubmit(blog.$id!, comment.$id!)}
+                                disabled={loadingComments["reply-" + comment.$id] || !replyInputs[comment.$id!]?.trim()}
+                                className="p-1 text-blue-600 hover:text-blue-700 transition-colors disabled:opacity-50"
+                                title="Send reply"
+                              >
+                                {loadingComments["reply-" + comment.$id] ? (
+                                  <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                                ) : (
+                                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+                                  </svg>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+            
+            {/* Show More/Fewer Comments Button */}
+            {commentsData[blog.$id!] && commentsData[blog.$id!].filter(comment => !comment.parent_comment_id).length > 3 && (
+              <div className="pt-4 border-t border-gray-100 dark:border-gray-700">
+                <button 
+                  className="w-full text-center py-2 px-4 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 text-blue-600 hover:text-blue-700 text-sm font-medium rounded-lg transition-colors"
+                  onClick={() => handleToggleShowComments(blog.$id!)}
+                >
+                  {showAllComments[blog.$id!] ? 
+                    '▲ Show fewer comments' : 
+                    `▼ Show more comments (${commentsData[blog.$id!].filter(comment => !comment.parent_comment_id).length - 3} more)`
+                  }
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="text-center py-6">
+            <div className="text-gray-400 dark:text-gray-500 mb-2">
+              <svg className="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+            </div>
+            <p className="text-gray-500 dark:text-gray-400 text-sm">No comments yet. Be the first to share your thoughts!</p>
+          </div>
+        )}
       </div>
     </article>
   );
@@ -234,10 +399,15 @@ export default function BlogsPage() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
-  const [bookmarkedBlogs, setBookmarkedBlogs] = useState<Set<string>>(new Set());
   const [commentsData, setCommentsData] = useState<{[blogId: string]: Comment[]}>({});
   const [commentInputs, setCommentInputs] = useState<{[blogId: string]: string}>({});
   const [loadingComments, setLoadingComments] = useState<{[blogId: string]: boolean}>({});
+  const [replyingTo, setReplyingTo] = useState<{[commentId: string]: boolean}>({});
+  const [replyInputs, setReplyInputs] = useState<{[commentId: string]: string}>({});
+  const [showAllComments, setShowAllComments] = useState<{[blogId: string]: boolean}>({});
+  
+  // Request deduplication - track recent comment submissions
+  const recentRequests = React.useRef<Map<string, number>>(new Map());
 
   const formatDate = (dateString: string) => {
     try {
@@ -291,26 +461,6 @@ export default function BlogsPage() {
       }
       setHasMore(result.blogs.length === 20);
 
-      // Fetch bookmark status for each blog if user is logged in
-      if (user) {
-        const bookmarkChecks = await Promise.all(
-          result.blogs.map(blog => blogService.checkIfBookmarked(blog.$id!, user.$id))
-        );
-        
-        const newBookmarkedBlogs = new Set<string>();
-        result.blogs.forEach((blog, index) => {
-          if (bookmarkChecks[index]) {
-            newBookmarkedBlogs.add(blog.$id!);
-          }
-        });
-        
-        if (page === 1) {
-          setBookmarkedBlogs(newBookmarkedBlogs);
-        } else {
-          setBookmarkedBlogs(prev => new Set([...prev, ...newBookmarkedBlogs]));
-        }
-      }
-
       // Fetch comments for each blog
       const commentsPromises = result.blogs.map(blog => 
         blogService.getComments(blog.$id!).catch(() => [] as Comment[])
@@ -350,39 +500,6 @@ export default function BlogsPage() {
     }
   };
 
-  const handleBookmark = async (blogId: string) => {
-    if (!user) {
-      router.push('/login');
-      return;
-    }
-    try {
-      // Check if the blog is already bookmarked
-      const isBookmarked = bookmarkedBlogs.has(blogId);
-      
-      if (isBookmarked) {
-        // Remove bookmark if already bookmarked
-        await blogService.removeBookmark(blogId, user.$id);
-        setBlogs(prev => prev.map(blog => 
-          blog.$id === blogId ? { ...blog, bookmarks: Math.max(0, (blog.bookmarks || 0) - 1) } : blog
-        ));
-        setBookmarkedBlogs(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(blogId);
-          return newSet;
-        });
-      } else {
-        // Add bookmark if not bookmarked
-        await blogService.bookmarkBlog(blogId, user.$id);
-        setBlogs(prev => prev.map(blog => 
-          blog.$id === blogId ? { ...blog, bookmarks: (blog.bookmarks || 0) + 1 } : blog
-        ));
-        setBookmarkedBlogs(prev => new Set([...prev, blogId]));
-      }
-    } catch (error) {
-      console.error('Error toggling bookmark:', error);
-    }
-  };
-
   const handleComment = async (blogId: string) => {
     if (!user) {
       router.push('/login');
@@ -390,7 +507,37 @@ export default function BlogsPage() {
     }
     
     const commentText = commentInputs[blogId]?.trim();
-    if (!commentText) return;
+    if (!commentText) {
+      console.log('No comment text provided');
+      return;
+    }
+    
+    // Prevent duplicate submissions with deduplication
+    if (loadingComments[blogId]) {
+      console.log('Comment submission already in progress for blog:', blogId);
+      return;
+    }
+    
+    // Check for recent duplicate requests - only prevent EXACT same content within 2 seconds
+    const requestKey = `${blogId}-${user.$id}-${commentText}`;
+    const now = Date.now();
+    const lastRequest = recentRequests.current.get(requestKey);
+    
+    if (lastRequest && (now - lastRequest) < 2000) {
+      console.log('Duplicate request detected (exact same content within 2 seconds), ignoring. Time since last:', now - lastRequest, 'ms');
+      return;
+    }
+    
+    // Track this request
+    recentRequests.current.set(requestKey, now);
+    
+    // Cleanup old requests (older than 10 seconds)
+    const cutoff = now - 10000;
+    for (const [key, timestamp] of recentRequests.current.entries()) {
+      if (timestamp < cutoff) {
+        recentRequests.current.delete(key);
+      }
+    }
 
     try {
       setLoadingComments(prev => ({ ...prev, [blogId]: true }));
@@ -410,22 +557,54 @@ export default function BlogsPage() {
       
       // Clear input
       setCommentInputs(prev => ({ ...prev, [blogId]: '' }));
-    } catch (error) {
+      
+      console.log('Comment added successfully:', comment);
+    } catch (error: any) {
       console.error('Error adding comment:', error);
+      
+      // Show user-friendly error message
+      if (error.message?.includes('already exists') || error.message?.includes('Document with the requested ID already exists')) {
+        console.log('Duplicate comment detected, trying to refresh comments...');
+        // Refresh comments to show any successfully added comments
+        await fetchBlogComments(blogId);
+      } else {
+        console.log('Failed to add comment:', error.message);
+        alert('Failed to add comment. Please try again.');
+      }
     } finally {
       setLoadingComments(prev => ({ ...prev, [blogId]: false }));
+      
+      // Remove from recent requests after completion
+      setTimeout(() => {
+        recentRequests.current.delete(requestKey);
+      }, 1000);
     }
   };
 
   const fetchBlogComments = async (blogId: string) => {
     try {
+      console.log('Fetching comments for blog:', blogId);
       const comments = await blogService.getComments(blogId);
+      console.log('Fetched comments:', comments.length, 'comments for blog', blogId);
+      
+      // Debug: Log comment structure
+      comments.forEach(comment => {
+        console.log('Comment structure:', {
+          id: comment.$id,
+          user: comment.user_name,
+          content: comment.content?.substring(0, 50),
+          parent_id: comment.parent_comment_id || 'NO_PARENT',
+          reply_to: comment.reply_to_user || 'NO_REPLY_TO',
+          is_main_comment: !comment.parent_comment_id
+        });
+      });
+      
       setCommentsData(prev => ({
         ...prev,
         [blogId]: comments
       }));
     } catch (error) {
-      console.error('Error fetching comments:', error);
+      console.error('Error fetching comments for blog', blogId, ':', error);
     }
   };
 
@@ -436,6 +615,199 @@ export default function BlogsPage() {
       ...prev,
       [blogId]: value
     }));
+  };
+
+  // Reply handlers
+  const handleReplyInputChange = (commentId: string, value: string) => {
+    setReplyInputs(prev => ({
+      ...prev,
+      [commentId]: value
+    }));
+  };
+
+  const handleReplyToggle = (commentId: string) => {
+    setReplyingTo(prev => ({
+      ...prev,
+      [commentId]: !prev[commentId]
+    }));
+    // Clear reply input when closing
+    if (replyingTo[commentId]) {
+      setReplyInputs(prev => ({
+        ...prev,
+        [commentId]: ''
+      }));
+    }
+  };
+
+  // YouTube-style: Handle reply to a reply (still goes under main comment)
+  const handleReplyToReply = (parentCommentId: string, replyToUserName: string) => {
+    setReplyingTo(prev => ({
+      ...prev,
+      [parentCommentId]: true
+    }));
+    
+    // Pre-fill the reply input with @mention
+    setReplyInputs(prev => ({
+      ...prev,
+      [parentCommentId]: `@${replyToUserName} `
+    }));
+    
+    // Focus the input after a brief delay
+    setTimeout(() => {
+      const input = document.querySelector(`input[data-reply-id="${parentCommentId}"]`) as HTMLInputElement;
+      if (input) {
+        input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
+      }
+    }, 100);
+  };
+
+  const handleReplySubmit = async (blogId: string, parentCommentId: string) => {
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+
+    const replyText = replyInputs[parentCommentId]?.trim();
+    if (!replyText) {
+      console.log('No reply text provided');
+      return;
+    }
+
+    // Prevent duplicate submissions with deduplication
+    if (loadingComments["reply-" + parentCommentId]) {
+      console.log('Reply submission already in progress for comment:', parentCommentId);
+      return;
+    }
+    
+    // Check for recent duplicate requests - only prevent EXACT same reply within 2 seconds
+    const requestKey = `reply-${blogId}-${parentCommentId}-${user.$id}-${replyText}`;
+    const now = Date.now();
+    const lastRequest = recentRequests.current.get(requestKey);
+    
+    if (lastRequest && (now - lastRequest) < 2000) {
+      console.log('Duplicate reply request detected (exact same content within 2 seconds), ignoring. Time since last:', now - lastRequest, 'ms');
+      return;
+    }
+    
+    // Track this request
+    recentRequests.current.set(requestKey, now);
+
+    try {
+      setLoadingComments(prev => ({ ...prev, ["reply-" + parentCommentId]: true }));
+      
+      // Find the parent comment to get the user being replied to
+      const parentComment = commentsData[blogId]?.find(comment => comment.$id === parentCommentId);
+      
+      // YouTube-style reply logic: Extract @mention if present
+      let replyToUser = '';
+      let cleanContent = replyText;
+      
+      // Check if reply starts with @mention
+      const mentionMatch = replyText.match(/^@(\w+)\s+(.*)$/);
+      if (mentionMatch) {
+        replyToUser = mentionMatch[1];
+        cleanContent = mentionMatch[2].trim();
+      } else {
+        // If no @mention, replying to the main comment author
+        replyToUser = parentComment?.user_name || '';
+      }
+      
+      console.log('Reply details:', {
+        parentCommentId,
+        parentComment: parentComment?.user_name,
+        replyToUser,
+        originalText: replyText,
+        cleanContent
+      });
+      
+      // Add reply comment with parent info
+      const reply = await blogService.addComment(
+        blogId, 
+        user.$id, 
+        cleanContent, // Use clean content without @mention
+        user.name, 
+        undefined, // userAvatar
+        parentCommentId, 
+        replyToUser
+      );
+      
+      // Update comments data
+      setCommentsData(prev => ({
+        ...prev,
+        [blogId]: [reply, ...(prev[blogId] || [])]
+      }));
+      
+      // Update blog comments count
+      setBlogs(prev => prev.map(blog => 
+        blog.$id === blogId ? { ...blog, comments_count: (blog.comments_count || 0) + 1 } : blog
+      ));
+      
+      // Clear reply input and close reply form
+      setReplyInputs(prev => ({ ...prev, [parentCommentId]: '' }));
+      setReplyingTo(prev => ({ ...prev, [parentCommentId]: false }));
+      
+      console.log('Reply added successfully:', reply);
+    } catch (error: any) {
+      console.error('Error adding reply:', error);
+      
+      // Show user-friendly error message
+      if (error.message?.includes('already exists') || error.message?.includes('Document with the requested ID already exists')) {
+        console.log('Duplicate reply detected, trying to refresh comments...');
+        // Refresh comments to show any successfully added replies
+        await fetchBlogComments(blogId);
+      } else {
+        console.log('Failed to add reply:', error.message);
+        alert('Failed to add reply. Please try again.');
+      }
+    } finally {
+      setLoadingComments(prev => ({ ...prev, ["reply-" + parentCommentId]: false }));
+      
+      // Remove from recent requests after completion
+      setTimeout(() => {
+        recentRequests.current.delete(requestKey);
+      }, 1000);
+    }
+  };
+
+  // Delete comment handler
+  // Delete comment handler
+  const handleDeleteComment = async (commentId: string, blogId: string) => {
+    if (!user) return;
+    
+    if (!confirm('Are you sure you want to delete this comment?')) return;
+
+    try {
+      setLoadingComments(prev => ({ ...prev, [`delete-${commentId}`]: true }));
+      
+      await blogService.deleteComment(commentId, blogId);
+      
+      // Remove comment from local state
+      setCommentsData(prev => ({
+        ...prev,
+        [blogId]: prev[blogId]?.filter(comment => comment.$id !== commentId) || []
+      }));
+      
+      // Update blog comments count
+      setBlogs(prev => prev.map(blog => 
+        blog.$id === blogId ? { ...blog, comments_count: Math.max((blog.comments_count || 0) - 1, 0) } : blog
+      ));
+    } catch (error) {
+      console.error('Error deleting comment:', error);
+    } finally {
+      setLoadingComments(prev => ({ ...prev, [`delete-${commentId}`]: false }));
+    }
+  };
+
+  // Cancel reply handler
+  const handleCancelReply = (commentId: string) => {
+    setReplyingTo(prev => ({ ...prev, [commentId]: false }));
+    setReplyInputs(prev => ({ ...prev, [commentId]: '' }));
+  };
+
+  // Toggle show all comments handler
+  const handleToggleShowComments = (blogId: string) => {
+    setShowAllComments(prev => ({ ...prev, [blogId]: !prev[blogId] }));
   };
 
   return (
@@ -528,15 +900,23 @@ export default function BlogsPage() {
                       key={blog.$id} 
                       blog={blog}
                       user={user}
-                      bookmarkedBlogs={bookmarkedBlogs}
                       commentsData={commentsData}
                       commentInputs={commentInputs}
                       loadingComments={loadingComments}
-                      handleBookmark={handleBookmark}
+                      replyingTo={replyingTo}
+                      replyInputs={replyInputs}
+                      showAllComments={showAllComments}
                       handleComment={handleComment}
                       handleInputChange={handleInputChange}
                       fetchBlogComments={fetchBlogComments}
                       formatDate={formatDate}
+                      handleReplyToggle={handleReplyToggle}
+                      handleReplyInputChange={handleReplyInputChange}
+                      handleReplySubmit={handleReplySubmit}
+                      handleDeleteComment={handleDeleteComment}
+                      handleCancelReply={handleCancelReply}
+                      handleToggleShowComments={handleToggleShowComments}
+                      handleReplyToReply={handleReplyToReply}
                     />
                   ))}
                 </div>

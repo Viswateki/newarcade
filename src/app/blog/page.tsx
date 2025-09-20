@@ -9,7 +9,6 @@ import { formatTags } from '@/lib/tagsHelper';
 import type { Blog, Comment } from '@/lib/appwrite';
 import { 
   FaHeart, 
-  FaBookmark, 
   FaShare, 
   FaCalendarAlt, 
   FaClock, 
@@ -40,7 +39,6 @@ export default function BlogPostPage() {
   const [relatedBlogs, setRelatedBlogs] = useState<Blog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLiked, setIsLiked] = useState(false);
-  const [isBookmarked, setIsBookmarked] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [copied, setCopied] = useState(false);
   const [newComment, setNewComment] = useState('');
@@ -124,13 +122,8 @@ export default function BlogPostPage() {
     if (!user || !blog || !blog.$id) return;
     
     try {
-      const [liked, bookmarked] = await Promise.all([
-        blogService.checkIfLiked(blog.$id, user.$id),
-        blogService.checkIfBookmarked(blog.$id, user.$id)
-      ]);
-      
+      const liked = await blogService.checkIfLiked(blog.$id, user.$id);
       setIsLiked(liked);
-      setIsBookmarked(bookmarked);
     } catch (error) {
       console.error('Error checking user interactions:', error);
     }
@@ -150,21 +143,6 @@ export default function BlogPostPage() {
       setIsLiked(!isLiked);
     } catch (error) {
       console.error('Error toggling like:', error);
-    }
-  };
-
-  const handleBookmark = async () => {
-    if (!user || !blog || !blog.$id) return;
-    
-    try {
-      if (isBookmarked) {
-        await blogService.removeBookmark(blog.$id, user.$id);
-      } else {
-        await blogService.bookmarkBlog(blog.$id, user.$id);
-      }
-      setIsBookmarked(!isBookmarked);
-    } catch (error) {
-      console.error('Error toggling bookmark:', error);
     }
   };
 
@@ -286,14 +264,6 @@ export default function BlogPostPage() {
               >
                 <FaHeart className={`w-4 h-4 ${isLiked ? 'text-red-500' : ''}`} />
                 <span className="text-sm">{blog.likes}</span>
-              </button>
-              <button
-                onClick={handleBookmark}
-                className={`p-2 rounded-full transition-all duration-300 ${
-                  isBookmarked ? 'bg-yellow-100 text-yellow-600' : 'hover:bg-gray-100'
-                }`}
-              >
-                <FaBookmark className={`w-4 h-4 ${isBookmarked ? 'text-yellow-500' : ''}`} />
               </button>
             </div>
           </div>
@@ -470,18 +440,16 @@ export default function BlogPostPage() {
             </button>
             
             <button
-              onClick={handleBookmark}
-              className={`flex items-center space-x-2 px-6 py-3 rounded-full font-medium transition-all duration-300 ${
-                isBookmarked ? 'bg-yellow-100 text-yellow-600' : 'hover:bg-gray-100'
-              }`}
+              onClick={() => setShowShareMenu(!showShareMenu)}
+              className="flex items-center space-x-2 px-6 py-3 rounded-full font-medium transition-all duration-300 hover:bg-gray-100 relative"
               style={{
-                backgroundColor: isBookmarked ? undefined : colors.card,
-                color: isBookmarked ? undefined : colors.foreground,
+                backgroundColor: colors.card,
+                color: colors.foreground,
                 border: `1px solid ${colors.border}`
               }}
             >
-              <FaBookmark className={`w-5 h-5 ${isBookmarked ? 'text-yellow-500' : ''}`} />
-              <span>{isBookmarked ? 'Bookmarked' : 'Bookmark'}</span>
+              <FaShare className="w-5 h-5" />
+              <span>Share</span>
             </button>
           </div>
         </div>
