@@ -870,27 +870,14 @@ const ToolCard: React.FC<ToolCardProps> = ({ tool, onToolClick }) => {
       <div 
         className="w-20 h-20 md:w-24 md:h-24 overflow-hidden p-0.5 transition-all duration-300 group-hover:shadow-xl shadow-md relative"
         style={{
-          backgroundColor: tool.logoBackgroundColor || colors.card,
           borderRadius: '32px',
           transform: 'rotate(-2deg)',
-          background: tool.logoBackgroundColor 
-            ? `linear-gradient(135deg, ${tool.logoBackgroundColor} 0%, ${tool.logoBackgroundColor}dd 100%)`
-            : `linear-gradient(135deg, ${colors.card} 0%, ${theme === 'dark' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(59, 130, 246, 0.05)'} 100%)`,
           border: `1px solid ${theme === 'dark' ? 'rgba(59, 130, 246, 0.3)' : 'rgba(59, 130, 246, 0.2)'}`,
           boxShadow: theme === 'dark' 
             ? '0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(59, 130, 246, 0.1)'
             : '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(59, 130, 246, 0.1)'
         }}
       >
-        {/* Subtle glow effect */}
-        <div 
-          className="absolute inset-0 rounded-[32px] opacity-0 group-hover:opacity-20 transition-opacity duration-300"
-          style={{
-            background: 'linear-gradient(135deg, #3B82F6, #8B5CF6)',
-            filter: 'blur(8px)',
-            transform: 'scale(1.1)'
-          }}
-        />
         <img
           src={logoUrl}
           alt={`${tool.name} icon`}

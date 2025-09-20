@@ -139,7 +139,7 @@ export default function BlogPostPage() {
     if (!user || !blog || !blog.$id) return;
     
     try {
-      const liked = await blogService.checkIfLiked(blog.$id, user.$id);
+      const liked = await blogService.checkIfLiked(blog.$id, user.id);
       setIsLiked(liked);
     } catch (error) {
       console.error('Error checking user interactions:', error);
@@ -151,10 +151,10 @@ export default function BlogPostPage() {
     
     try {
       if (isLiked) {
-        await blogService.unlikeBlog(blog.$id, user.$id);
+        await blogService.unlikeBlog(blog.$id, user.id);
         setBlog(prev => prev ? { ...prev, likes: prev.likes - 1 } : null);
       } else {
-        await blogService.likeBlog(blog.$id, user.$id);
+        await blogService.likeBlog(blog.$id, user.id);
         setBlog(prev => prev ? { ...prev, likes: prev.likes + 1 } : null);
       }
       setIsLiked(!isLiked);
@@ -197,7 +197,7 @@ export default function BlogPostPage() {
     
     try {
       setIsCommenting(true);
-      const comment = await blogService.addComment(blog.$id, user.$id, newComment.trim(), user.name, user.prefs?.avatar);
+      const comment = await blogService.addComment(blog.$id, user.id, newComment.trim(), user.name, undefined);
       setComments(prev => [comment, ...prev]);
       setBlog(prev => prev ? { ...prev, comments_count: prev.comments_count + 1 } : null);
       setNewComment('');
@@ -215,10 +215,10 @@ export default function BlogPostPage() {
       setIsCommenting(true);
       const reply = await blogService.addComment(
         blog.$id, 
-        user.$id, 
+        user.id, 
         replyContent.trim(), 
         user.name, 
-        user.prefs?.avatar,
+        undefined,
         parentCommentId,
         replyToUser
       );
@@ -598,11 +598,7 @@ export default function BlogPostPage() {
                   className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0"
                   style={{ backgroundColor: colors.accent }}
                 >
-                  {user.prefs?.avatar ? (
-                    <img src={user.prefs.avatar} alt={user.name} className="w-10 h-10 rounded-full object-cover" />
-                  ) : (
-                    user.name?.charAt(0)?.toUpperCase() || 'U'
-                  )}
+                  {user.name?.charAt(0)?.toUpperCase() || 'U'}
                 </div>
                 <div className="flex-1">
                   <textarea
@@ -686,11 +682,7 @@ export default function BlogPostPage() {
                             className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0"
                             style={{ backgroundColor: colors.accent }}
                           >
-                            {user.prefs?.avatar ? (
-                              <img src={user.prefs.avatar} alt={user.name} className="w-8 h-8 rounded-full object-cover" />
-                            ) : (
-                              user.name?.charAt(0)?.toUpperCase() || 'U'
-                            )}
+                            {user.name?.charAt(0)?.toUpperCase() || 'U'}
                           </div>
                           <div className="flex-1">
                             <textarea

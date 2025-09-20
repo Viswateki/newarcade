@@ -1,26 +1,31 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { authService } from '@/lib/auth';
+import { authService } from '@/lib/authService';
 
 interface User {
-  $id: string;
-  name: string;
+  id: string;
   email: string;
-  emailVerification: boolean;
-  $createdAt: string;
-  $updatedAt: string;
-  prefs?: any;
+  name: string;
+  username: string;
+  type: string;
+  arcadeCoins: number;
+  firstName?: string;
+  lastName?: string;
+  linkedinProfile?: string;
+  githubProfile?: string;
+  image?: string;
+  isEmailVerified: boolean;
+  usernameLastUpdatedAt?: string;
 }
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string, name: string) => Promise<void>;
+  signup: (email: string, password: string, username: string, linkedinProfile?: string, githubProfile?: string) => Promise<void>;
   logout: () => Promise<void>;
-  oAuthLogin: (provider: 'google' | 'github') => Promise<void>;
-  checkUserExists: (email: string) => Promise<{ exists: boolean; isOAuthOnly: boolean }>;
+  checkUserExists: (email: string) => Promise<{ exists: boolean }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -35,9 +40,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const checkAuth = async () => {
     try {
+      console.log('Checking authentication...');
       const currentUser = await authService.getCurrentUser();
-      setUser(currentUser);
+      console.log('Current user:', currentUser);
+      
+      if (currentUser) {
+        setUser(currentUser);
+        console.log('User authenticated successfully');
+      } else {
+        console.log('No authenticated user found');
+      }
     } catch (error) {
+      console.error('Auth check failed:', error);
       setUser(null);
     } finally {
       setLoading(false);
@@ -46,17 +60,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string) => {
     try {
-      await authService.login(email, password);
-      await checkAuth();
+      const result = await authService.login({ email, password });
+      if (!result.success) {
+        throw new Error(result.message);
+      }
+      if (result.user) {
+        setUser(result.user);
+      }
     } catch (error) {
       throw error;
     }
   };
 
-  const signup = async (email: string, password: string, name: string) => {
+  const signup = async (email: string, password: string, username: string, linkedinProfile?: string, githubProfile?: string) => {
     try {
-      await authService.createAccount(email, password, name);
-      await checkAuth();
+      const result = await authService.register({ 
+        email, 
+        password, 
+        username, 
+        linkedinProfile, 
+        githubProfile 
+      });
+      if (!result.success) {
+        throw new Error(result.message);
+      }
+      // Don't set user here since they need to verify email first
     } catch (error) {
       throw error;
     }
@@ -67,38 +95,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await authService.logout();
       setUser(null);
     } catch (error) {
-      throw error;
-    }
-  };
-
-  const oAuthLogin = async (provider: 'google' | 'github') => {
-    try {
-      await authService.oAuthLogin(provider);
-    } catch (error) {
-      throw error;
+      console.error('Logout failed:', error);
+      // Force clear user state even if logout fails
+      setUser(null);
     }
   };
 
   const checkUserExists = async (email: string) => {
     try {
-      return await authService.checkUserExists(email);
+      // Simple implementation - just return false for now since OAuth is disabled
+      return { exists: false };
     } catch (error) {
-      return { exists: false, isOAuthOnly: false };
+      throw error;
     }
   };
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        loading,
-        login,
-        signup,
-        logout,
-        oAuthLogin,
-        checkUserExists,
-      }}
-    >
+    <AuthContext.Provider value={{ 
+      user, 
+      loading, 
+      login, 
+      signup, 
+      logout, 
+      checkUserExists 
+    }}>
       {children}
     </AuthContext.Provider>
   );

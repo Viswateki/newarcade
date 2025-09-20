@@ -1,7 +1,7 @@
 'use client';
 
 import { Client, Account, OAuthProvider, ID } from 'appwrite';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useTheme } from '@/contexts/ThemeContext';
 import Link from 'next/link';
@@ -13,32 +13,63 @@ const client = new Client()
 const account = new Account(client);
 
 const handleOAuthSignup = (provider: 'google' | 'github') => {
-  const oauthProvider = provider === 'google' ? OAuthProvider.Google : OAuthProvider.Github;
-  const scopes = provider === 'github' ? ['user:email'] : undefined;
-  
-  account.createOAuth2Session(
-    oauthProvider,
-    `${window.location.origin}/dashboard`,
-    `${window.location.origin}/signup?error=oauth_failed`,
-    scopes
-  );
+  // OAuth functionality disabled for now
+  console.log(`${provider} signup clicked but functionality disabled`);
 };
 
-const handleEmailSignup = async (email: string, password: string, name: string) => {
+const handleEmailSignup = async (email: string, password: string, username: string) => {
   try {
-    await account.create(ID.unique(), email, password, name);
-    await account.createEmailPasswordSession(email, password);
-    window.location.href = '/dashboard';
+    const response = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email,
+        password,
+        username,
+        linkedinProfile: '', // Will be filled later in dashboard
+        githubProfile: '',   // Will be filled later in dashboard
+      }),
+    });
+
+    let data;
+    try {
+      data = await response.json();
+    } catch (jsonError) {
+      console.error('Failed to parse JSON response:', jsonError);
+      throw new Error('Server returned invalid response');
+    }
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Signup failed');
+    }
+
+    if (data.requiresVerification) {
+      // Redirect to verification page with email parameter
+      window.location.href = `/verify-email?email=${encodeURIComponent(email)}`;
+    } else {
+      window.location.href = '/dashboard';
+    }
   } catch (error: any) {
     throw new Error(error.message || 'Signup failed');
   }
 };
 
 export default function Signup() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <SignupContent />
+    </Suspense>
+  );
+}
+
+function SignupContent() {
   const [error, setError] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [username, setUsername] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showEmailSignup, setShowEmailSignup] = useState(false);
   const { colors, theme } = useTheme();
@@ -56,8 +87,22 @@ export default function Signup() {
     setIsLoading(true);
     setError('');
 
+    // Validate password confirmation
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      setIsLoading(false);
+      return;
+    }
+
+    // Validate required fields
+    if (!username.trim() || !email.trim() || !password) {
+      setError('Please fill in all required fields');
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      await handleEmailSignup(email, password, name);
+      await handleEmailSignup(email, password, username);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -67,31 +112,31 @@ export default function Signup() {
 
   return (
     <div 
-      className="min-h-screen flex items-center justify-center px-4 py-8"
+      className="min-h-screen flex items-center justify-center px-4 py-16 pt-24"
       style={{ backgroundColor: colors.background }}
     >
       <div className="w-full max-w-md">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold mb-2" style={{ color: colors.foreground }}>
+            <h1 className="text-2xl font-bold mb-1" style={{ color: colors.foreground }}>
               Create your account
             </h1>
             <p className="text-sm" style={{ color: colors.cardForeground, opacity: 0.7 }}>
               Enter your details below to create your account.
             </p>
           </div>
-          <div className="flex flex-col items-end space-y-2">
+          <div className="flex flex-col items-end space-y-1">
             <Link 
               href="/" 
-              className="text-sm hover:underline transition-colors duration-200"
+              className="text-xs hover:underline transition-colors duration-200"
               style={{ color: colors.accent }}
             >
               ← Back to Home
             </Link>
             <Link 
               href="/login" 
-              className="text-sm hover:underline transition-colors duration-200"
+              className="text-xs hover:underline transition-colors duration-200"
               style={{ color: colors.accent }}
             >
               Sign In
@@ -101,17 +146,17 @@ export default function Signup() {
 
         {/* Main Form Container */}
         <div 
-          className="p-8 rounded-lg border shadow-lg"
+          className="p-6 rounded-lg border shadow-lg"
           style={{ 
             backgroundColor: colors.card,
             borderColor: colors.border,
             boxShadow: theme === 'dark' 
-              ? '0 25px 50px -12px rgba(0, 0, 0, 0.8)' 
-              : '0 25px 50px -12px rgba(0, 0, 0, 0.15)'
+              ? '0 20px 40px -12px rgba(0, 0, 0, 0.8)' 
+              : '0 20px 40px -12px rgba(0, 0, 0, 0.15)'
           }}
         >
           {error && (
-            <div className="border text-sm px-4 py-3 rounded-lg mb-6" style={{
+            <div className="border text-sm px-4 py-2.5 rounded-lg mb-4" style={{
               backgroundColor: theme === 'dark' ? '#7f1d1d' : '#fef2f2',
               borderColor: theme === 'dark' ? '#dc2626' : '#fecaca',
               color: theme === 'dark' ? '#fca5a5' : '#dc2626'
@@ -189,39 +234,40 @@ export default function Signup() {
               </button>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Username */}
               <div>
                 <label 
-                  htmlFor="name" 
-                  className="block text-sm font-medium mb-2"
+                  htmlFor="username" 
+                  className="block text-sm font-medium mb-1.5"
                   style={{ color: colors.cardForeground }}
                 >
-                  Full Name
+                  Username *
                 </label>
                 <input
-                  id="name"
+                  id="username"
                   type="text"
                   required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-opacity-50 focus:border-opacity-50 transition-all duration-200 outline-none"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="w-full px-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-opacity-50 focus:border-opacity-50 transition-all duration-200 outline-none text-sm"
                   style={{ 
                     backgroundColor: colors.background, 
                     borderColor: colors.border,
                     color: colors.foreground,
                     '--tw-ring-color': colors.accent
                   } as React.CSSProperties}
-                  placeholder="Enter your full name"
+                  placeholder="Choose a unique username"
                 />
               </div>
 
               <div>
                 <label 
                   htmlFor="email" 
-                  className="block text-sm font-medium mb-2"
+                  className="block text-sm font-medium mb-1.5"
                   style={{ color: colors.cardForeground }}
                 >
-                  Email
+                  Email *
                 </label>
                 <input
                   id="email"
@@ -229,7 +275,7 @@ export default function Signup() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-opacity-50 focus:border-opacity-50 transition-all duration-200 outline-none"
+                  className="w-full px-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-opacity-50 focus:border-opacity-50 transition-all duration-200 outline-none text-sm"
                   style={{ 
                     backgroundColor: colors.background, 
                     borderColor: colors.border,
@@ -243,10 +289,10 @@ export default function Signup() {
               <div>
                 <label 
                   htmlFor="password" 
-                  className="block text-sm font-medium mb-2"
+                  className="block text-sm font-medium mb-1.5"
                   style={{ color: colors.cardForeground }}
                 >
-                  Password
+                  Password *
                 </label>
                 <input
                   id="password"
@@ -254,7 +300,7 @@ export default function Signup() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-opacity-50 focus:border-opacity-50 transition-all duration-200 outline-none"
+                  className="w-full px-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-opacity-50 focus:border-opacity-50 transition-all duration-200 outline-none text-sm"
                   style={{ 
                     backgroundColor: colors.background, 
                     borderColor: colors.border,
@@ -265,10 +311,40 @@ export default function Signup() {
                 />
               </div>
 
+              <div>
+                <label 
+                  htmlFor="confirmPassword" 
+                  className="block text-sm font-medium mb-1.5"
+                  style={{ color: colors.cardForeground }}
+                >
+                  Confirm Password *
+                </label>
+                <input
+                  id="confirmPassword"
+                  type="password"
+                  required
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className={`w-full px-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-opacity-50 focus:border-opacity-50 transition-all duration-200 outline-none text-sm ${
+                    confirmPassword && password !== confirmPassword ? 'border-red-500' : ''
+                  }`}
+                  style={{ 
+                    backgroundColor: colors.background, 
+                    borderColor: confirmPassword && password !== confirmPassword ? '#ef4444' : colors.border,
+                    color: colors.foreground,
+                    '--tw-ring-color': colors.accent
+                  } as React.CSSProperties}
+                  placeholder="Confirm your password"
+                />
+                {confirmPassword && password !== confirmPassword && (
+                  <p className="text-red-500 text-xs mt-1">Passwords do not match</p>
+                )}
+              </div>
+
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full font-medium py-3 px-4 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full font-medium py-2.5 px-4 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed mt-5"
                 style={{ 
                   backgroundColor: colors.accent, 
                   color: 'white' 
@@ -276,7 +352,7 @@ export default function Signup() {
               >
                 {isLoading ? (
                   <div className="flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                     Creating account...
                   </div>
                 ) : (
@@ -287,7 +363,7 @@ export default function Signup() {
               <button
                 type="button"
                 onClick={() => setShowEmailSignup(false)}
-                className="w-full text-sm hover:underline transition-colors duration-200 py-2"
+                className="w-full text-sm hover:underline transition-colors duration-200 py-1.5 mt-3"
                 style={{ color: colors.accent }}
               >
                 ← Back to other options

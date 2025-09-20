@@ -18,14 +18,14 @@ const ToolCard: React.FC<ToolCardProps> = ({ tool, viewMode, onToolClick }) => {
   if (viewMode === 'list') {
     return (
       <div
-        className="group bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200 cursor-pointer overflow-hidden"
+        className="group  dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 transition-all duration-200 cursor-pointer overflow-hidden"
         onClick={() => onToolClick(tool)}
       >
         <div className="p-6">
           <div className="flex items-center gap-6">
             {/* Tool Logo */}
             <div className="flex-shrink-0">
-              <div className="w-16 h-16 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center overflow-hidden">
+              <div className="w-16 h-16 rounded-xl flex items-center justify-center overflow-hidden">
                 {(tool.logo || tool.imageurl || tool.toolImage) ? (
                   <img 
                     src={getToolImageUrlFromTool(tool)}
@@ -108,13 +108,13 @@ const ToolCard: React.FC<ToolCardProps> = ({ tool, viewMode, onToolClick }) => {
   // Grid View
   return (
     <div
-      className="group bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200 cursor-pointer overflow-hidden"
+      className="group bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 transition-all duration-200 cursor-pointer overflow-hidden"
       onClick={() => onToolClick(tool)}
     >
       <div className="p-6">
         {/* Header with logo and badges */}
         <div className="flex items-start justify-between mb-4">
-          <div className="w-14 h-14 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center overflow-hidden">
+          <div className="w-14 h-14 rounded-xl flex items-center justify-center overflow-hidden">
             {(tool.logo || tool.imageurl || tool.toolImage) ? (
               <img 
                 src={getToolImageUrlFromTool(tool)}

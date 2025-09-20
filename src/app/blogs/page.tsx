@@ -491,7 +491,7 @@ export default function BlogsPage() {
       return;
     }
     try {
-      await blogService.likeBlog(blogId, user.$id);
+      await blogService.likeBlog(blogId, user.id);
       setBlogs(prev => prev.map(blog => 
         blog.$id === blogId ? { ...blog, likes: (blog.likes || 0) + 1 } : blog
       ));
@@ -519,7 +519,7 @@ export default function BlogsPage() {
     }
     
     // Check for recent duplicate requests - only prevent EXACT same content within 2 seconds
-    const requestKey = `${blogId}-${user.$id}-${commentText}`;
+    const requestKey = `${blogId}-${user.id}-${commentText}`;
     const now = Date.now();
     const lastRequest = recentRequests.current.get(requestKey);
     
@@ -542,7 +542,7 @@ export default function BlogsPage() {
     try {
       setLoadingComments(prev => ({ ...prev, [blogId]: true }));
       
-      const comment = await blogService.addComment(blogId, user.$id, commentText, user.name);
+      const comment = await blogService.addComment(blogId, user.id, commentText, user.name);
       
       // Update comments data
       setCommentsData(prev => ({
@@ -681,7 +681,7 @@ export default function BlogsPage() {
     }
     
     // Check for recent duplicate requests - only prevent EXACT same reply within 2 seconds
-    const requestKey = `reply-${blogId}-${parentCommentId}-${user.$id}-${replyText}`;
+    const requestKey = `reply-${blogId}-${parentCommentId}-${user.id}-${replyText}`;
     const now = Date.now();
     const lastRequest = recentRequests.current.get(requestKey);
     
@@ -724,7 +724,7 @@ export default function BlogsPage() {
       // Add reply comment with parent info
       const reply = await blogService.addComment(
         blogId, 
-        user.$id, 
+        user.id, 
         cleanContent, // Use clean content without @mention
         user.name, 
         undefined, // userAvatar

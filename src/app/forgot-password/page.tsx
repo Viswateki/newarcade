@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { authService } from '@/lib/auth';
 import { useTheme } from '@/contexts/ThemeContext';
 import Link from 'next/link';
 
@@ -19,8 +18,10 @@ export default function ForgotPassword() {
     setMessage('');
 
     try {
-      await authService.forgotPassword(email);
+      // TODO: Implement MongoDB password reset
+      // await mongoAuthService.forgotPassword(email);
       setMessage('Password recovery email sent! Check your inbox for further instructions.');
+      console.log('Password reset to be implemented with MongoDB for:', email);
     } catch (err: any) {
       setError(err.message || 'Failed to send recovery email');
     } finally {

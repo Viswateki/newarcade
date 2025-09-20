@@ -129,10 +129,10 @@ export default function CreateBlogPage() {
     try {
       const blogData = {
         ...formData,
-        author_id: user.$id,
+        author_id: user.id,
         author_name: user.name,
-        author_avatar: user.prefs?.avatar || '',
-        author_bio: user.prefs?.bio || '',
+        author_avatar: user.image || '',
+        author_bio: '',
         excerpt: formData.excerpt || formData.content.substring(0, 300) + '...',
         seo_description: formData.seo_description || formData.excerpt || formData.content.substring(0, 160),
         date: new Date().toISOString(),

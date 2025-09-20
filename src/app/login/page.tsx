@@ -1,31 +1,25 @@
 'use client';
 
-import { Client, Account, OAuthProvider } from 'appwrite';
-import { useEffect, useState } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import Link from 'next/link';
 
-const client = new Client()
-  .setEndpoint(process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT!)
-  .setProject(process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID!);
-
-const account = new Account(client);
-
 const handleOAuthLogin = (provider: 'google' | 'github') => {
-  const oauthProvider = provider === 'google' ? OAuthProvider.Google : OAuthProvider.Github;
-  const scopes = provider === 'github' ? ['user:email'] : undefined;
-  
-  account.createOAuth2Session(
-    oauthProvider,
-    `${window.location.origin}/dashboard`,
-    `${window.location.origin}/login?error=oauth_failed`,
-    scopes
-  );
+  // OAuth functionality disabled for now
+  console.log(`${provider} login clicked but functionality disabled`);
 };
 
 export default function Login() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <LoginContent />
+    </Suspense>
+  );
+}
+
+function LoginContent() {
   const [error, setError] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -48,22 +42,10 @@ export default function Login() {
     setError('');
 
     try {
-      // First check if this email belongs to an OAuth-only user
-      const userCheck = await checkUserExists(email);
-      
-      if (userCheck.exists && userCheck.isOAuthOnly) {
-        setError('This email is associated with a Google or GitHub account. Please use the "Login with Google" or "Login with GitHub" button above instead.');
-        setIsLoading(false);
-        return;
-      }
-      
+      // Simple login without OAuth checks since OAuth is disabled
       await login(email, password);
     } catch (err: any) {
-      if (err.message === 'OAUTH_USER_NO_PASSWORD') {
-        setError('This email is associated with a Google or GitHub account. Please use the OAuth login buttons above.');
-      } else {
-        setError(err.message);
-      }
+      setError(err.message || 'Login failed. Please check your credentials.');
     } finally {
       setIsLoading(false);
     }

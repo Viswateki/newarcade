@@ -1,15 +1,18 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useAuth } from '@/contexts/AuthContext';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { 
   User, 
-  CreditCard, 
-  Bell, 
-  LogOut, 
-  Crown,
-  ChevronDown 
+  LogIn,
+  UserPlus,
+  ChevronDown,
+  LogOut,
+  Settings,
+  LayoutDashboard
 } from 'lucide-react';
 
 interface UserAccountDropdownProps {
@@ -17,165 +20,122 @@ interface UserAccountDropdownProps {
 }
 
 export function UserAccountDropdown({ className = '' }: UserAccountDropdownProps) {
-  const { user, logout } = useAuth();
   const { colors } = useTheme();
+  const { user, logout } = useAuth();
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
-
-  if (!user) return null;
 
   const handleLogout = async () => {
     try {
       await logout();
       setIsOpen(false);
+      router.push('/');
     } catch (error) {
       console.error('Logout failed:', error);
     }
   };
 
-  const menuItems = [
+  // Menu items for guests
+  const guestMenuItems = [
     {
-      icon: Crown,
-      label: 'Upgrade to Pro',
-      action: () => console.log('Upgrade clicked'),
-      highlight: true
+      icon: LogIn,
+      label: 'Sign In',
+      href: '/login'
     },
     {
-      icon: User,
-      label: 'Account',
-      action: () => console.log('Account clicked')
+      icon: UserPlus,
+      label: 'Sign Up',
+      href: '/signup'
+    }
+  ];
+
+  // Menu items for authenticated users
+  const userMenuItems = [
+    {
+      icon: LayoutDashboard,
+      label: 'Dashboard',
+      href: '/dashboard'
     },
     {
-      icon: CreditCard,
-      label: 'Billing',
-      action: () => console.log('Billing clicked')
-    },
-    {
-      icon: Bell,
-      label: 'Notifications',
-      action: () => console.log('Notifications clicked')
-    },
-    {
-      icon: LogOut,
-      label: 'Log out',
-      action: handleLogout,
-      danger: true
+      icon: Settings,
+      label: 'Settings',
+      href: '/settings'
     }
   ];
 
   return (
     <div className={`relative ${className}`}>
-      {/* User Account Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-3 w-full p-3 rounded-lg transition-all duration-200 hover:bg-opacity-80"
-        style={{ 
-          backgroundColor: colors.card,
-          color: colors.foreground 
-        }}
+        className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
+        style={{ color: colors.foreground }}
       >
-        <div className="flex items-center gap-3 flex-1">
-          {/* User Avatar */}
-          <div 
-            className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold"
-            style={{ 
-              backgroundColor: colors.accent,
-              color: colors.background 
-            }}
-          >
-            {user.name.charAt(0).toUpperCase()}
-          </div>
-          
-          {/* User Info */}
-          <div className="flex flex-col items-start text-left">
-            <span className="font-medium text-sm">{user.name}</span>
-            <span 
-              className="text-xs opacity-70"
-              style={{ color: colors.foreground }}
-            >
-              {user.email}
-            </span>
-          </div>
-        </div>
-        
-        {/* Dropdown Arrow */}
-        <ChevronDown 
-          className={`w-4 h-4 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
-        />
+        <User className="w-4 h-4" />
+        <span>{user ? (user.name || user.username) : 'Account'}</span>
+        <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
-      {/* Dropdown Menu */}
       {isOpen && (
-        <>
-          {/* Backdrop */}
-          <div 
-            className="fixed inset-0 z-40"
-            onClick={() => setIsOpen(false)}
-          />
-          
-          {/* Menu */}
-          <div 
-            className="absolute bottom-full left-0 mb-2 w-64 rounded-lg shadow-lg border z-50 py-2"
-            style={{ 
-              backgroundColor: colors.card,
-              borderColor: colors.border 
-            }}
-          >
-            {/* User Info Header */}
-            <div className="px-4 py-3 border-b" style={{ borderColor: colors.border }}>
-              <div className="flex items-center gap-3">
-                <div 
-                  className="w-10 h-10 rounded-full flex items-center justify-center font-semibold"
-                  style={{ 
-                    backgroundColor: colors.accent,
-                    color: colors.background 
-                  }}
-                >
-                  {user.name.charAt(0).toUpperCase()}
-                </div>
-                <div>
-                  <div className="font-medium" style={{ color: colors.foreground }}>
-                    {user.name}
-                  </div>
-                  <div 
-                    className="text-sm opacity-70"
-                    style={{ color: colors.foreground }}
-                  >
-                    {user.email}
-                  </div>
-                </div>
+        <div 
+          className="absolute right-0 mt-2 w-56 rounded-lg shadow-lg border py-2 z-50"
+          style={{ backgroundColor: colors.card, borderColor: colors.border }}
+        >
+          {user ? (
+            <>
+              {/* User info header */}
+              <div className="px-4 py-3 border-b" style={{ borderColor: colors.border }}>
+                <div className="font-semibold">{user.name || user.username}</div>
+                <div className="text-sm opacity-70">{user.email}</div>
               </div>
-            </div>
-
-            {/* Menu Items */}
-            <div className="py-2">
-              {menuItems.map((item, index) => {
-                const Icon = item.icon;
-                return (
-                  <button
-                    key={index}
-                    onClick={item.action}
-                    className="flex items-center gap-3 w-full px-4 py-2 text-left transition-colors duration-200 hover:bg-opacity-80"
-                    style={{ 
-                      color: item.danger ? '#ef4444' : 
-                             item.highlight ? colors.accent : 
-                             colors.foreground,
-                      backgroundColor: 'transparent'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = colors.muted;
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = 'transparent';
-                    }}
-                  >
-                    <Icon className="w-4 h-4" />
-                    <span className="text-sm">{item.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </>
+              
+              {/* User menu items */}
+              {userMenuItems.map((item) => (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  onClick={() => setIsOpen(false)}
+                  className="flex items-center gap-3 px-4 py-2 text-sm transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
+                  style={{ color: colors.foreground }}
+                >
+                  <item.icon className="w-4 h-4" />
+                  <span>{item.label}</span>
+                </Link>
+              ))}
+              
+              {/* Logout button */}
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-3 px-4 py-2 text-sm transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 w-full text-left border-t mt-2 pt-3"
+                style={{ color: colors.foreground, borderColor: colors.border }}
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Sign Out</span>
+              </button>
+            </>
+          ) : (
+            /* Guest menu items */
+            guestMenuItems.map((item) => (
+              <Link
+                key={item.label}
+                href={item.href}
+                onClick={() => setIsOpen(false)}
+                className="flex items-center gap-3 px-4 py-2 text-sm transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
+                style={{ color: colors.foreground }}
+              >
+                <item.icon className="w-4 h-4" />
+                <span>{item.label}</span>
+              </Link>
+            ))
+          )}
+        </div>
+      )}
+      
+      {/* Click outside to close */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 z-40"
+          onClick={() => setIsOpen(false)}
+        />
       )}
     </div>
   );

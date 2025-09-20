@@ -1,4 +1,4 @@
-import { Client, Databases, Storage, ID } from 'appwrite';
+import { Client, Databases, Storage, Account, ID } from 'appwrite';
 
 const client = new Client();
 
@@ -8,6 +8,8 @@ client
 
 export const databases = new Databases(client);
 export const storage = new Storage(client);
+export const account = new Account(client);
+export { client };
 
 // Database and Collection IDs
 export const DATABASE_ID = process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!;
@@ -174,4 +176,4 @@ export interface Tool {
     computedImageUrl?: string;
 }
 
-export { client, ID };
+export { ID };
