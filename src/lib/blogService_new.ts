@@ -6,35 +6,27 @@ import {
     USER_INTERACTIONS_COLLECTION_ID,
     STORAGE_BUCKET_ID, 
     Blog, 
-    UserInteraction,
-    Comment,
+    BlogInteraction, // Updated from UserInteraction to BlogInteraction
+    BlogComment,
     ID 
 } from './appwrite';
 import { Query } from 'appwrite';
 
 class BlogService {
-    // Create a new blog post (Medium-like)
+    // Create a new blog post
     async createBlog(blogData: Omit<Blog, '$id' | '$createdAt' | '$updatedAt'>): Promise<Blog> {
         try {
-            // Generate unique slug from title
-            const slug = this.generateSlug(blogData.title);
-            
-            // Calculate reading time
-            const readingTime = this.calculateReadingTime(blogData.content);
+            // Generate unique slug from title (required field)
+            const slug = blogData.slug || this.generateSlug(blogData.title);
             
             const cleanBlogData = {
                 ...blogData,
-                slug,
-                reading_time: readingTime, // Optional in your schema
-                readTime: readingTime.toString(), // Convert to string for your DB
-                tags: Array.isArray(blogData.tags) ? blogData.tags.join(', ') : blogData.tags, // Convert array to string
-                views: 0,
-                likes: 0,
-                comments_count: 0,
-                bookmarks: 0,
-                rating: 0,
-                date: new Date().toISOString(),
-                updated_at: new Date().toISOString()
+                slug, // Required field
+                // Convert tags array to string if needed (collection stores as string)
+                tags: Array.isArray(blogData.tags) ? blogData.tags.join(',') : (blogData.tags || ''),
+                // Set default values for required numeric fields
+                views: blogData.views || 0,
+                likes: blogData.likes || 0
             };
             
             // Remove empty/null values
@@ -45,31 +37,34 @@ class BlogService {
                 }
             });
             
-            // Retry logic for potential race conditions
-            let retries = 3;
-            while (retries > 0) {
-                try {
-                    const response = await databases.createDocument(
+            // Simple approach: Let Appwrite generate unique ID
+            try {
+                const response = await databases.createDocument(
+                    DATABASE_ID,
+                    BLOGS_COLLECTION_ID,
+                    ID.unique(),
+                    cleanBlogData
+                );
+                
+                return response as unknown as Blog;
+            } catch (error: any) {
+                // If slug conflict, generate new slug and retry once
+                if (error.message?.includes('already exists')) {
+                    console.log('Slug conflict detected, generating new slug...');
+                    cleanBlogData.slug = this.generateSlug(blogData.title);
+                    
+                    const retryResponse = await databases.createDocument(
                         DATABASE_ID,
                         BLOGS_COLLECTION_ID,
                         ID.unique(),
                         cleanBlogData
                     );
                     
-                    return response as unknown as Blog;
-                } catch (error: any) {
-                    if (error.message?.includes('already exists') && retries > 1) {
-                        // Generate new unique slug for retry
-                        cleanBlogData.slug = this.generateSlug(blogData.title);
-                        retries--;
-                        console.log(`Retrying blog creation with new slug: ${cleanBlogData.slug}`);
-                        continue;
-                    }
-                    throw error;
+                    return retryResponse as unknown as Blog;
                 }
+                
+                throw error;
             }
-            
-            throw new Error('Failed to create blog after multiple attempts');
         } catch (error) {
             console.error('Error creating blog:', error);
             throw error;
@@ -173,7 +168,7 @@ class BlogService {
     async updateBlog(blogId: string, updateData: Partial<Blog>): Promise<Blog> {
         try {
             const cleanUpdateData = { ...updateData };
-            cleanUpdateData.updated_at = new Date().toISOString();
+            cleanUpdateData.$updatedAt = new Date().toISOString();
             
             // Remove empty/null values
             Object.keys(cleanUpdateData).forEach(key => {
@@ -224,22 +219,31 @@ class BlogService {
     // LIKE FUNCTIONALITY
     async likeBlog(blogId: string, userId: string): Promise<void> {
         try {
-            // Create like interaction
+            const likeData = {
+                user_id: userId,
+                blog_id: blogId,
+                interaction_type: 'like'
+            };
+            
+            // Simple approach: Let Appwrite generate unique ID
             await databases.createDocument(
                 DATABASE_ID,
                 USER_INTERACTIONS_COLLECTION_ID,
                 ID.unique(),
-                {
-                    user_id: userId,
-                    blog_id: blogId,
-                    interaction_type: 'like'
-                }
+                likeData
             );
+            
+            console.log(`Like created successfully`);
 
             // Increment blog likes count
             const blog = await this.getBlogById(blogId);
             await this.updateBlog(blogId, { likes: blog.likes + 1 });
-        } catch (error) {
+        } catch (error: any) {
+            // If it's a duplicate like (user already liked), handle gracefully
+            if (error.message?.includes('already exists')) {
+                console.log('User already liked this post');
+                return; // User already liked, no need to error
+            }
             console.error('Error liking blog:', error);
             throw error;
         }
@@ -297,21 +301,28 @@ class BlogService {
     // BOOKMARK FUNCTIONALITY
     async bookmarkBlog(blogId: string, userId: string): Promise<void> {
         try {
+            const bookmarkData = {
+                user_id: userId,
+                blog_id: blogId,
+                interaction_type: 'bookmark'
+            };
+            
+            // Simple approach: Let Appwrite generate unique ID
             await databases.createDocument(
                 DATABASE_ID,
                 USER_INTERACTIONS_COLLECTION_ID,
                 ID.unique(),
-                {
-                    user_id: userId,
-                    blog_id: blogId,
-                    interaction_type: 'bookmark'
-                }
+                bookmarkData
             );
-
-            // Increment blog bookmarks count
-            const blog = await this.getBlogById(blogId);
-            await this.updateBlog(blogId, { bookmarks: blog.bookmarks + 1 });
-        } catch (error) {
+            
+            console.log(`Bookmark created successfully`);
+            
+        } catch (error: any) {
+            // If it's a duplicate bookmark (user already bookmarked), handle gracefully
+            if (error.message?.includes('already exists')) {
+                console.log('User already bookmarked this post');
+                return; // User already bookmarked, no need to error
+            }
             console.error('Error bookmarking blog:', error);
             throw error;
         }
@@ -336,9 +347,7 @@ class BlogService {
                     interactions.documents[0].$id
                 );
 
-                // Decrement blog bookmarks count
-                const blog = await this.getBlogById(blogId);
-                await this.updateBlog(blogId, { bookmarks: Math.max(0, blog.bookmarks - 1) });
+                // Note: Bookmark count is now tracked through interactions, not stored on blog
             }
         } catch (error) {
             console.error('Error removing bookmark:', error);
@@ -405,98 +414,78 @@ class BlogService {
         content: string, 
         userName?: string, 
         userAvatar?: string,
-        parentCommentId?: string,
-        replyToUser?: string
-    ): Promise<Comment> {
-        try {
-            console.log('Adding comment with simple approach');
-            
-            // Add a timestamp to ensure uniqueness
-            const timestamp = Date.now();
-            
-            const commentData = {
-                user_id: userId,
-                blog_id: blogId,
-                interaction_type: 'comment' as const,
-                content,
-                user_name: userName || '',
-                user_avatar: userAvatar || '',
-                parent_comment_id: parentCommentId || '',
-                reply_to_user: replyToUser || '',
-                timestamp: timestamp.toString()
-            };
+        parentCommentId?: string
+    ): Promise<BlogComment> {
+        const commentData = {
+            user_id: userId,
+            blog_id: blogId,
+            interaction_type: 'comment' as const,
+            content,
+            user_name: userName || '',
+            user_avatar: userAvatar || '',
+            parent_comment_id: parentCommentId || ''
+        };
 
-            console.log('Creating comment with ID.unique() and timestamp:', timestamp);
+        console.log('Adding comment to user_interactions collection');
+        console.log('Creating comment with data:', commentData);
+        
+        try {
+            // Step 1: Get user's next comment number for unique incremental ID
+            const commentNumber = await this.getUserNextCommentNumber(userId);
             
-            // Use the correct legacy syntax for Appwrite v19
+            // Step 2: Generate short unique ID (max 36 chars for Appwrite)
+            // Format: c_{userHash}_{count}_{timestamp}_{random}
+            const userHash = userId.split('').reduce((a, b) => a + b.charCodeAt(0), 0).toString(16).substr(0, 6);
+            const shortTimestamp = Date.now().toString(36); // Base36 is much shorter
+            const randomSuffix = Math.random().toString(36).substr(2, 4); // Shorter random
+            const uniqueId = `c_${userHash}_${commentNumber}_${shortTimestamp}_${randomSuffix}`;
+            
+            console.log(`🆔 Generated unique comment ID: ${uniqueId} (${uniqueId.length} chars, user comment #${commentNumber})`);
+            
+            // Step 3: Create comment with guaranteed unique ID (within 36 char limit)
             const response = await databases.createDocument(
                 DATABASE_ID,
                 USER_INTERACTIONS_COLLECTION_ID,
-                ID.unique(),
+                uniqueId,
                 commentData
             );
 
-            // Success! Update blog comment count
-            try {
-                const blog = await this.getBlogById(blogId);
-                await this.updateBlog(blogId, { comments_count: blog.comments_count + 1 });
-            } catch (blogError) {
-                console.warn('Failed to update blog comment count:', blogError);
-            }
-
-            console.log('Comment created successfully with ID:', response.$id);
-            return response as unknown as Comment;
+            console.log(`✅ Comment created successfully with ID: ${response.$id}`);
+            return response as unknown as BlogComment;
             
         } catch (error: any) {
-            console.error('Error adding comment:', error);
-            console.error('Error details:', {
-                message: error.message,
-                code: error.code,
-                type: error.type,
-                response: error.response
-            });
+            console.error('💥 Error adding comment:', error);
             
-            // If it's a duplicate ID error, try one more time with a completely new approach
-            if (error.message?.includes('already exists') || error.message?.includes('Document with the requested ID already exists')) {
-                console.warn('Duplicate ID detected, retrying with manual ID generation...');
+            // If still getting duplicate ID (extremely unlikely now), use fallback method
+            if (error.message?.includes('already exists')) {
+                console.log('🆘 Using emergency fallback ID generation...');
+                
                 try {
-                    const manualId = `comment_${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${userId.substr(-4)}`;
-                    console.log('Attempting retry with manual ID:', manualId);
+                    // Emergency fallback: Ultra-short ID format (max 36 chars)
+                    const now = Date.now();
+                    const userHash = userId.split('').reduce((a, b) => a + b.charCodeAt(0), 0).toString(16).substr(0, 4);
+                    const timeBase36 = now.toString(36);
+                    const random1 = Math.random().toString(36).substr(2, 6);
+                    const random2 = Math.random().toString(36).substr(2, 4);
                     
-                    // Recreate comment data for retry
-                    const retryCommentData = {
-                        user_id: userId,
-                        blog_id: blogId,
-                        interaction_type: 'comment' as const,
-                        content,
-                        user_name: userName || '',
-                        user_avatar: userAvatar || '',
-                        parent_comment_id: parentCommentId || '',
-                        reply_to_user: replyToUser || '',
-                        timestamp: Date.now().toString()
-                    };
+                    // Format: e_{userHash}_{time36}_{random1}_{random2} (emergency)
+                    const emergencyId = `e_${userHash}_${timeBase36}_${random1}_${random2}`;
+                    
+                    console.log(`🆘 Emergency ID generated: ${emergencyId} (${emergencyId.length} chars)`);
                     
                     const retryResponse = await databases.createDocument(
                         DATABASE_ID,
                         USER_INTERACTIONS_COLLECTION_ID,
-                        manualId,
-                        retryCommentData
+                        emergencyId,
+                        commentData
                     );
                     
-                    console.log('Retry successful with manual ID:', retryResponse.$id);
+                    console.log(`✅ Comment created with emergency ID: ${retryResponse.$id}`);
+                    return retryResponse as unknown as BlogComment;
                     
-                    // Success! Update blog comment count
-                    try {
-                        const blog = await this.getBlogById(blogId);
-                        await this.updateBlog(blogId, { comments_count: blog.comments_count + 1 });
-                    } catch (blogError) {
-                        console.warn('Failed to update blog comment count on retry:', blogError);
-                    }
-                    
-                    return retryResponse as unknown as Comment;
                 } catch (retryError: any) {
-                    console.error('Retry also failed:', retryError);
-                    throw new Error(`Failed to add comment after retry: ${retryError.message}`);
+                    console.error('💀 Emergency fallback also failed:', retryError);
+                    throw new Error(`Failed to add comment with both primary and fallback methods: ${retryError.message}`);
                 }
             }
             
@@ -504,42 +493,100 @@ class BlogService {
         }
     }
 
-    async getComments(blogId: string): Promise<Comment[]> {
+    // Helper method to get user's next comment number
+    private async getUserNextCommentNumber(userId: string): Promise<number> {
         try {
-            const response = await databases.listDocuments({
-                databaseId: DATABASE_ID,
-                collectionId: USER_INTERACTIONS_COLLECTION_ID,
-                queries: [
+            const userComments = await databases.listDocuments(
+                DATABASE_ID,
+                USER_INTERACTIONS_COLLECTION_ID,
+                [
+                    Query.equal('user_id', userId),
+                    Query.equal('interaction_type', 'comment'),
+                    Query.select(['$id'])
+                ]
+            );
+            
+            return userComments.total + 1;
+        } catch (error) {
+            console.error('Error getting user comment count, using timestamp fallback:', error);
+            // If we can't get count, use timestamp as fallback
+            return Date.now() % 100000; // Keep it reasonable
+        }
+    }
+
+    async getComments(blogId: string): Promise<BlogComment[]> {
+        try {
+            const response = await databases.listDocuments(
+                DATABASE_ID,
+                USER_INTERACTIONS_COLLECTION_ID,
+                [
                     Query.equal('blog_id', blogId),
                     Query.equal('interaction_type', 'comment'),
-                    Query.orderDesc('$createdAt')
+                    Query.orderAsc('$createdAt') // Changed to ascending for better thread display
                 ]
-            });
+            );
 
-            return response.documents as unknown as Comment[];
+            return response.documents as unknown as BlogComment[];
         } catch (error) {
             console.error('Error fetching comments:', error);
             throw error;
         }
     }
 
-    async deleteComment(commentId: string, blogId: string): Promise<void> {
+    async deleteComment(commentId: string): Promise<void> {
         try {
-            // Delete the comment document using object syntax
-            await databases.deleteDocument({
-                databaseId: DATABASE_ID,
-                collectionId: USER_INTERACTIONS_COLLECTION_ID,
-                documentId: commentId
-            });
+            // Delete the comment document
+            await databases.deleteDocument(
+                DATABASE_ID,
+                USER_INTERACTIONS_COLLECTION_ID,
+                commentId
+            );
 
-            // Decrement blog comments count
-            const blog = await this.getBlogById(blogId);
-            if (blog.comments_count > 0) {
-                await this.updateBlog(blogId, { comments_count: blog.comments_count - 1 });
-            }
+            // Note: Comment count is calculated dynamically from comments collection
+            // No need to update blog document as comments_count doesn't exist
         } catch (error) {
             console.error('Error deleting comment:', error);
             throw error;
+        }
+    }
+
+    // Get comments count for a blog
+    async getCommentsCount(blogId: string): Promise<number> {
+        try {
+            const response = await databases.listDocuments(
+                DATABASE_ID,
+                USER_INTERACTIONS_COLLECTION_ID,
+                [
+                    Query.equal('blog_id', blogId),
+                    Query.equal('interaction_type', 'comment'),
+                    Query.select(['$id']) // Only get IDs for count
+                ]
+            );
+            
+            return response.total;
+        } catch (error) {
+            console.error('Error getting comments count:', error);
+            return 0;
+        }
+    }
+
+    // Get replies for a specific comment
+    async getReplies(parentCommentId: string): Promise<BlogComment[]> {
+        try {
+            const response = await databases.listDocuments(
+                DATABASE_ID,
+                USER_INTERACTIONS_COLLECTION_ID,
+                [
+                    Query.equal('parent_comment_id', parentCommentId),
+                    Query.equal('interaction_type', 'comment'),
+                    Query.orderAsc('$createdAt')
+                ]
+            );
+
+            return response.documents as unknown as BlogComment[];
+        } catch (error) {
+            console.error('Error fetching replies:', error);
+            return [];
         }
     }
 

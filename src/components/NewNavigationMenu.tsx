@@ -6,6 +6,7 @@ import { useTheme } from '@/contexts/ThemeContext'
 import { useAuth } from '@/contexts/AuthContext'
 import ThemeToggle from './ThemeToggle'
 import UserAccountDropdown from './UserAccountDropdown'
+import ImprovedUserDropdown from './ImprovedUserDropdown'
 import { 
   Home, 
   LayoutDashboard, 
@@ -225,23 +226,11 @@ export function NewNavigationMenu() {
           </div>
         </div>
         
-        {/* Right side - Use existing UserAccountDropdown */}
+        {/* Right side - Use improved UserAccountDropdown */}
         <div className="flex items-center space-x-2">
           {user ? (
-            // Show dashboard link for authenticated users
-            <div className="flex items-center space-x-4">
-              <Link 
-                href="/dashboard"
-                className="group inline-flex h-10 w-max items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors focus:outline-none disabled:pointer-events-none disabled:opacity-50 hover:bg-black/10 dark:hover:bg-white/10"
-                style={{
-                  color: theme === 'dark' ? '#ffffff' : '#1e293b'
-                }}
-              >
-                <LayoutDashboard className="w-4 h-4 mr-2" />
-                Dashboard
-              </Link>
-              <UserAccountDropdown />
-            </div>
+            // Show improved user account dropdown for authenticated users
+            <ImprovedUserDropdown />
           ) : (
             // Public user - show Sign In button
             <div className="rounded-lg px-4 py-2">

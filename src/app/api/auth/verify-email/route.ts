@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authService } from '@/lib/authService';
+import { emailService } from '@/lib/emailService';
 
 export async function POST(request: NextRequest) {
   try {
@@ -45,6 +46,73 @@ export async function POST(request: NextRequest) {
     console.error('❌ Email verification API error:', error);
     return NextResponse.json(
       { success: false, message: 'Server error during verification' },
+      { status: 500 }
+    );
+  }
+}
+
+// PUT method for resending verification code
+export async function PUT(request: NextRequest) {
+  try {
+    const body = await request.json();
+    console.log('📨 Resend verification API received body:', body);
+    
+    const { email } = body as {
+      email: string;
+    };
+
+    // Validate required fields
+    if (!email) {
+      console.log('❌ Missing email field');
+      return NextResponse.json(
+        { success: false, message: 'Email is required' },
+        { status: 400 }
+      );
+    }
+
+    console.log('✅ Calling authService.resendVerificationCode with:', { email });
+    
+    const result = await authService.resendVerificationCode(email);
+    console.log('📊 AuthService resend result:', result);
+    
+    if (!result.success) {
+      console.log('❌ Resend failed:', result.message);
+      return NextResponse.json(
+        { success: false, message: result.message },
+        { status: 400 }
+      );
+    }
+
+    // Send verification email if code generation was successful
+    if (result.verificationCode && result.userName) {
+      try {
+        await emailService.sendVerificationCode(
+          email,
+          result.verificationCode,
+          result.userName
+        );
+        console.log('✅ Resend verification email sent successfully');
+      } catch (emailError) {
+        console.error('❌ Failed to send resend verification email:', emailError);
+        // Still return success since the code was generated
+        return NextResponse.json({
+          success: true,
+          message: 'New verification code generated, but email sending failed. Please try again.',
+          showCode: result.verificationCode // Show code to user if email fails
+        });
+      }
+    }
+
+    console.log('✅ Resend verification successful');
+    return NextResponse.json({
+      success: true,
+      message: 'New verification code sent to your email'
+    });
+
+  } catch (error) {
+    console.error('❌ Resend verification API error:', error);
+    return NextResponse.json(
+      { success: false, message: 'Server error during resend' },
       { status: 500 }
     );
   }

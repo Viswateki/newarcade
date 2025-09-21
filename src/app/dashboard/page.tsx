@@ -11,7 +11,8 @@ import {
   Wrench,
   Heart,
   Eye,
-  TrendingUp
+  TrendingUp,
+  MessageSquare
 } from 'lucide-react';
 
 function DashboardContent() {
@@ -116,7 +117,7 @@ function DashboardContent() {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="font-semibold text-sm opacity-70">Total Views</h3>
-                  <p className="text-2xl font-bold">{stats?.totalViews || 0}</p>
+                  <p className="text-2xl font-bold">{(stats?.totalBlogViews || 0) + (stats?.totalToolViews || 0)}</p>
                 </div>
                 <Eye className="w-8 h-8 opacity-70" />
               </div>
@@ -131,8 +132,8 @@ function DashboardContent() {
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="font-semibold text-sm opacity-70">Total Likes</h3>
-                  <p className="text-2xl font-bold">{stats?.totalLikes || 0}</p>
+                  <h3 className="font-semibold text-sm opacity-70">Blog Likes</h3>
+                  <p className="text-2xl font-bold">{stats?.totalBlogLikes || 0}</p>
                 </div>
                 <Heart className="w-8 h-8 opacity-70" />
               </div>
@@ -147,10 +148,10 @@ function DashboardContent() {
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="font-semibold text-sm opacity-70">Favorites</h3>
-                  <p className="text-2xl font-bold">{stats?.totalFavorites || 0}</p>
+                  <h3 className="font-semibold text-sm opacity-70">Blog Comments</h3>
+                  <p className="text-2xl font-bold">{stats?.totalBlogComments || 0}</p>
                 </div>
-                <TrendingUp className="w-8 h-8 opacity-70" />
+                <MessageSquare className="w-8 h-8 opacity-70" />
               </div>
             </div>
 

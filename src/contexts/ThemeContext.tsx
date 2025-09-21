@@ -31,13 +31,13 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const getThemeColors = (): ThemeColors => {
     if (theme === 'dark') {
       return {
-        background: '#0f1419', // Softer dark background
-        foreground: '#f8f9fa', // Softer white instead of pure white
-        muted: '#374151',
-        accent: '#00bcd4', // Match aiarcade brand color
-        border: '#374151',
-        card: '#1a1f29', // Softer dark card
-        cardForeground: '#e5e7eb',
+        background: '#000000', // Pure black background
+        foreground: '#ffffff', // Pure white text
+        muted: '#1a1a1a', // Dark gray for muted elements
+        accent: '#00bcd4', // Keep the brand color
+        border: '#333333', // Dark border
+        card: '#111111', // Very dark card background
+        cardForeground: '#ffffff', // White text on cards
         beige: '#f5f5dc',
         beigeText: '#2c2c2c'
       };

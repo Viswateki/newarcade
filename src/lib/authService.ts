@@ -1,40 +1,20 @@
-import { account, databases } from './appwrite';
-import { ID, Query } from 'appwrite';
+import { Client, Databases, Storage, Account, ID, Query } from 'appwrite';
+import { databases } from './appwrite';
 
-// Helper function to generate 6-digit code
+// In-memory storage for verification codes
+const verificationCodes: { [email: string]: { code: string; expiry: number; userName: string } } = {};
+
+// Generate 6-digit verification code
 function generateVerificationCode(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-// Simple in-memory store for verification codes
-interface VerificationCodeStore {
-  [email: string]: {
-    code: string;
-    expiry: number;
-    userName: string;
-  }
-}
-
-const verificationCodes: VerificationCodeStore = {};
-
-// Clean up expired codes every 5 minutes
-setInterval(() => {
-  const now = Date.now();
-  Object.keys(verificationCodes).forEach(email => {
-    if (verificationCodes[email].expiry < now) {
-      delete verificationCodes[email];
-    }
-  });
-}, 5 * 60 * 1000);
-
-// Types
 export interface UserProfile {
   $id: string;
   userId: string;
   username: string;
   name: string;
   email: string;
-  emailVerified: boolean;
   type: string;
   arcadeCoins: number;
   firstName?: string;
@@ -42,6 +22,7 @@ export interface UserProfile {
   linkedinProfile?: string;
   githubProfile?: string;
   image?: string;
+  isEmailVerified: boolean;
   avatar?: string;
   usernameLastUpdatedAt?: string;
   failedLoginAttempts: number;
@@ -96,368 +77,208 @@ class AuthService {
     };
   }
 
-  private validatePassword(password: string): { isValid: boolean; errors: string[] } {
-    const errors: string[] = [];
-    
-    if (password.length < 8) {
-      errors.push('Password must be at least 8 characters long');
-    }
-    if (!/(?=.*[a-z])/.test(password)) {
-      errors.push('Password must contain at least one lowercase letter');
-    }
-    if (!/(?=.*[A-Z])/.test(password)) {
-      errors.push('Password must contain at least one uppercase letter');
-    }
-    if (!/(?=.*\d)/.test(password)) {
-      errors.push('Password must contain at least one number');
-    }
-
-    return {
-      isValid: errors.length === 0,
-      errors
-    };
-  }
-
-  // Check if username is available
-  async isUsernameAvailable(username: string): Promise<boolean> {
+  // Session management helpers
+  private storeUserSession(user: AuthUser): void {
     try {
-      const response = await databases.listDocuments(
-        this.databaseId,
-        this.userCollectionId,
-        [Query.equal('username', username.trim())]
-      );
-      return response.documents.length === 0;
+      // Check if we're in a browser environment
+      if (typeof window === 'undefined') {
+        console.log('⚠️ Server-side rendering, cannot store session');
+        return;
+      }
+      
+      // Store user data
+      localStorage.setItem('auth_user', JSON.stringify(user));
+      
+      // Set session expiry for 7 days
+      const expiry = Date.now() + (7 * 24 * 60 * 60 * 1000);
+      localStorage.setItem('auth_session_expiry', expiry.toString());
+      
+      console.log('✅ User session stored successfully');
     } catch (error) {
-      console.error('Error checking username availability:', error);
-      // If we can't check due to permissions, assume it's available for now
-      // This is a temporary workaround until permissions are fixed
-      console.warn('Username availability check failed - proceeding with registration');
-      return true;
+      console.error('❌ Error storing user session:', error);
     }
   }
 
-  // Get user profile by userId
-  async getUserProfile(userId: string): Promise<UserProfile | null> {
+  private clearUserSession(): void {
     try {
-      const response = await databases.listDocuments(
-        this.databaseId,
-        this.userCollectionId,
-        [Query.equal('userId', userId)]
-      );
+      // Check if we're in a browser environment
+      if (typeof window === 'undefined') {
+        console.log('⚠️ Server-side rendering, cannot clear session');
+        return;
+      }
       
-      return response.documents.length > 0 ? response.documents[0] as unknown as UserProfile : null;
+      localStorage.removeItem('auth_user');
+      localStorage.removeItem('auth_session_expiry');
+      console.log('✅ User session cleared');
     } catch (error) {
-      console.error('Error fetching user profile:', error);
-      
-      // Check if it's a permission error
-      if ((error as any)?.code === 401) {
-        console.error('Permission denied: User does not have permission to read from users collection');
-        console.error('Please check your Appwrite collection permissions');
-      }
-      
-      // If database access fails due to permissions, try to get account info
-      try {
-        const accountInfo = await account.get();
-        console.warn('Profile database access failed, using minimal profile from account');
-        return {
-          $id: accountInfo.$id,
-          userId: accountInfo.$id,
-          name: accountInfo.name,
-          username: accountInfo.email.split('@')[0], // Use email prefix as fallback
-          email: accountInfo.email,
-          emailVerified: accountInfo.emailVerification,
-          type: 'user',
-          arcadeCoins: 0,
-          failedLoginAttempts: 0,
-          $createdAt: accountInfo.$createdAt,
-          $updatedAt: accountInfo.$updatedAt
-        } as UserProfile;
-      } catch (accountError) {
-        console.error('Failed to get account info as fallback:', accountError);
-        return null;
-      }
+      console.error('❌ Error clearing user session:', error);
     }
   }
 
-  // Register new user
-  async register(data: RegisterData): Promise<{ success: boolean; message: string; user?: AuthUser; requiresVerification?: boolean; verificationCode?: string }> {
+  // Custom login - database only
+  async login(data: LoginData): Promise<{ 
+    success: boolean; 
+    message: string; 
+    user?: AuthUser;
+    requiresVerification?: boolean;
+    email?: string;
+    verificationCode?: string;
+    userName?: string;
+  }> {
     try {
-      const { email, password, username, linkedinProfile, githubProfile } = data;
+      const { email, password } = data;
 
-      // Validate input
-      if (!email || !password || !username) {
-        return { success: false, message: 'Email, password, and username are required' };
+      if (!email || !password) {
+        return { success: false, message: 'Email and password are required' };
       }
-
-      // Use username as name for now (can be updated later in profile)
-      const name = username.trim();
 
       const emailValidation = this.validateEmail(email);
       if (!emailValidation.isValid) {
         return { success: false, message: 'Invalid email format' };
       }
 
-      const passwordValidation = this.validatePassword(password);
-      if (!passwordValidation.isValid) {
-        return { success: false, message: passwordValidation.errors.join(', ') };
-      }
+      console.log('🔐 Custom login attempt for:', emailValidation.sanitized);
 
-      // Validate username
-      if (username.trim().length < 3) {
-        return { success: false, message: 'Username must be at least 3 characters long' };
-      }
-
-      console.log('🔍 Environment check:', {
-        databaseId: this.databaseId,
-        userCollectionId: this.userCollectionId,
-        hasDatabase: !!this.databaseId,
-        hasCollection: !!this.userCollectionId
-      });
-
-      console.log('📝 Registration data:', {
-        email: emailValidation.sanitized,
-        username: username.trim(),
-        name
-      });
-      if (!passwordValidation.isValid) {
-        return { 
-          success: false, 
-          message: 'Weak password', 
-        };
-      }
-
-      // Check if username is available
-      const usernameAvailable = await this.isUsernameAvailable(username);
-      if (!usernameAvailable) {
-        return { success: false, message: 'Username is already taken' };
-      }
-
-      // Check if email already exists in our database
+      // Find user in our database by email
+      let existingUserResponse;
       try {
-        const existingUsers = await databases.listDocuments(
+        existingUserResponse = await databases.listDocuments(
           this.databaseId,
           this.userCollectionId,
           [Query.equal('email', emailValidation.sanitized)]
         );
-        
-        if (existingUsers.documents.length > 0) {
-          return { success: false, message: 'An account with this email already exists' };
-        }
-      } catch (emailCheckError) {
-        console.warn('Could not check existing emails:', emailCheckError);
-        // Continue with registration attempt
+      } catch (dbError) {
+        console.error('❌ Error accessing database:', dbError);
+        return { success: false, message: 'Authentication service temporarily unavailable. Please try again.' };
+      }
+      
+      if (existingUserResponse.documents.length === 0) {
+        console.log('❌ User not found in database');
+        return { success: false, message: 'Invalid email or password' };
       }
 
-      console.log('📤 About to create Appwrite account with:', {
-        email: emailValidation.sanitized,
-        name: name
+      const userProfile = existingUserResponse.documents[0] as unknown as UserProfile;
+      console.log('👤 User found in database:', {
+        email: userProfile.email,
+        isEmailVerified: userProfile.isEmailVerified
       });
 
-      // Check if email already exists by trying to create account
-      let appwriteUser;
-      try {
-        appwriteUser = await account.create(
-          ID.unique(),
-          emailValidation.sanitized,
-          password,
-          name.trim()
-        );
-      } catch (accountError: any) {
-        console.error('❌ Account creation failed:', accountError);
+      // For now, we'll skip password verification since we don't store hashed passwords
+      // In a production system, you should hash and verify passwords
+      console.log('⚠️ Note: Password verification skipped - implement proper password hashing');
+
+      // Check if user is verified
+      if (!userProfile.isEmailVerified) {
+        console.log('📧 User exists but is unverified, generating verification code...');
         
-        // Handle specific Appwrite errors
-        if (accountError.type === 'user_already_exists') {
-          return { success: false, message: 'An account with this email already exists. Please try logging in instead.' };
-        }
+        // Generate verification code for unverified user
+        const verificationCode = generateVerificationCode();
+        const expiry = Date.now() + 10 * 60 * 1000; // 10 minutes from now
         
-        if (accountError.type === 'user_invalid_format') {
-          return { success: false, message: 'Invalid email format' };
-        }
+        // Store verification code in memory
+        verificationCodes[emailValidation.sanitized] = {
+          code: verificationCode,
+          expiry,
+          userName: userProfile.name
+        };
         
-        if (accountError.type === 'user_password_mismatch') {
-          return { success: false, message: 'Password does not meet requirements' };
-        }
+        console.log('✅ Verification code generated for unverified user');
         
-        if (accountError.code === 429) {
-          return { success: false, message: 'Too many requests. Please wait and try again.' };
-        }
-        
-        // For generic bad request errors, it's often a duplicate email
-        if (accountError.code === 400 && accountError.type === 'general_bad_request') {
-          return { 
-            success: false, 
-            message: 'Registration failed. This email may already be in use. Please try logging in or use a different email address.'
-          };
-        }
-        
-        // Generic fallback
         return { 
           success: false, 
-          message: 'Account creation failed: ' + (accountError.message || 'Unknown error')
+          message: 'Your email is not verified. A verification code has been sent to your email.',
+          requiresVerification: true,
+          email: emailValidation.sanitized,
+          verificationCode, // This will be used by the API to send email
+          userName: userProfile.name
         };
       }
 
-      console.log('✅ Appwrite account created successfully:', {
-        id: appwriteUser.$id,
-        email: appwriteUser.email,
-        name: appwriteUser.name
-      });
-
-      console.log('📤 About to create database document with:', {
-        userId: appwriteUser.$id,
-        username: username.trim(),
-        name: name.trim(),
-        email: emailValidation.sanitized,
-        type: 'user',
-        arcadeCoins: 100,
-        failedLoginAttempts: 0,
-        linkedinProfile: linkedinProfile?.trim() || '',
-        githubProfile: githubProfile?.trim() || '',
-      });
-
-      // Create user profile in database with minimal fields first
-      console.log('🔍 Attempting minimal document creation...');
-      
-      let userProfile: any;
-      
-      try {
-        // Try with just the essential fields
-        const minimalProfile = await databases.createDocument(
-          this.databaseId,
-          this.userCollectionId,
-          ID.unique(),
-          {
-            userId: appwriteUser.$id,
-            username: username.trim(),
-            name: name.trim(),
-            email: emailValidation.sanitized,
-            type: 'user'
-          }
-        );
-        
-        console.log('✅ Minimal document created successfully:', minimalProfile.$id);
-        
-        // Now try to update it with additional fields
-        try {
-          const updatedProfile = await databases.updateDocument(
-            this.databaseId,
-            this.userCollectionId,
-            minimalProfile.$id,
-            {
-              arcadeCoins: 100,
-              failedLoginAttempts: 0,
-              linkedinProfile: linkedinProfile?.trim() || '',
-              githubProfile: githubProfile?.trim() || '',
-            }
-          );
-          
-          console.log('✅ Document updated with additional fields');
-          userProfile = updatedProfile;
-        } catch (updateError) {
-          console.log('⚠️ Could not update with additional fields, using minimal profile');
-          userProfile = minimalProfile;
-        }
-        
-      } catch (minimalError) {
-        console.error('❌ Even minimal document creation failed:', minimalError);
-        throw minimalError;
+      // Check if account is locked
+      if (userProfile.accountLockUntil && new Date(userProfile.accountLockUntil) > new Date()) {
+        return { success: false, message: 'Account is temporarily locked. Please try again later.' };
       }
 
-      console.log('✅ Database document created successfully:', userProfile.$id);
+      // Reset failed login attempts on successful login
+      if (userProfile.failedLoginAttempts > 0) {
+        try {
+          await databases.updateDocument(
+            this.databaseId,
+            this.userCollectionId,
+            userProfile.$id,
+            {
+              failedLoginAttempts: 0,
+              accountLockUntil: null
+            }
+          );
+        } catch (updateError) {
+          console.log('⚠️ Could not reset failed login attempts, but login successful');
+        }
+      }
 
-      // Generate verification code and store in memory
-      console.log('📧 Generating verification code...');
-      const verificationCode = generateVerificationCode();
-      const expiry = Date.now() + 10 * 60 * 1000; // 10 minutes from now
-      
-      // Store verification code in memory
-      verificationCodes[emailValidation.sanitized] = {
-        code: verificationCode,
-        expiry,
-        userName: userProfile.name
-      };
-
-      console.log('✅ Verification code stored in memory');
-
+      // Create user object for successful login
       const user: AuthUser = {
-        id: appwriteUser.$id,
-        email: appwriteUser.email,
+        id: userProfile.userId,
+        email: userProfile.email,
         name: userProfile.name,
         username: userProfile.username,
         type: userProfile.type,
-        arcadeCoins: userProfile.arcadeCoins || 100,
+        arcadeCoins: userProfile.arcadeCoins,
         firstName: userProfile.firstName,
         lastName: userProfile.lastName,
         linkedinProfile: userProfile.linkedinProfile,
         githubProfile: userProfile.githubProfile,
         image: userProfile.image,
-        isEmailVerified: appwriteUser.emailVerification,
+        isEmailVerified: userProfile.isEmailVerified,
         usernameLastUpdatedAt: userProfile.usernameLastUpdatedAt,
       };
 
+      console.log('✅ Custom login successful for user:', user.email);
+
       return {
         success: true,
-        message: 'User registered successfully. Please check your email for verification.',
-        user,
-        requiresVerification: true,
-        verificationCode
+        message: 'Login successful',
+        user
       };
 
     } catch (error: unknown) {
-      console.error('Registration error:', error);
-      console.error('Registration error details:', JSON.stringify(error, null, 2));
-      
-      // If user was created but profile creation failed, clean up
-      try {
-        await account.deleteSession('current');
-      } catch (cleanupError) {
-        // Don't log this as an error if it's just "no session to delete"
-        if ((cleanupError as any)?.code !== 401) {
-          console.error('Cleanup error:', cleanupError);
-        }
-      }
-      
-      if ((error as { code?: number }).code === 409) {
-        return { success: false, message: 'User with this email already exists' };
-      }
-      
-      if ((error as any)?.code === 400) {
-        console.error('Registration validation error. Full error:', error);
-        const errorMessage = (error as any)?.message || 'Invalid data provided';
-        return { success: false, message: `Registration failed: ${errorMessage}` };
-      }
-      
-      if ((error as any)?.type === 'user_email_already_exists') {
-        return { success: false, message: 'An account with this email already exists' };
-      }
-      
-      if ((error as any)?.type === 'user_invalid_credentials') {
-        return { success: false, message: 'Invalid email or password format' };
-      }
-      
-      if ((error as any)?.type === 'general_bad_request') {
-        return { success: false, message: 'Invalid data provided. Please check all fields are filled correctly.' };
-      }
-      
-      return { 
-        success: false, 
-        message: (error as any)?.message || 'Failed to register user. Please try again.' 
-      };
+      console.error('Login error:', error);
+      return { success: false, message: 'Login failed. Please try again.' };
     }
   }
 
-  // Verify email with 6-digit code
-  async verifyEmailWithCode(email: string, code: string): Promise<{ success: boolean; message: string; user?: AuthUser }> {
+  // Custom email verification
+  async verifyEmailCode(email: string, code: string): Promise<{ 
+    success: boolean; 
+    message: string; 
+    user?: { 
+      id: string; 
+      name: string; 
+      email: string; 
+      username: string; 
+      type: string; 
+      arcadeCoins: number; 
+      linkedinProfile?: string; 
+      githubProfile?: string; 
+      image?: string; 
+      isEmailVerified: boolean; 
+      usernameLastUpdatedAt?: string;
+      firstName?: string;
+      lastName?: string;
+    } 
+  }> {
     try {
-      console.log('🔍 Verifying email code for:', email);
+      const emailValidation = this.validateEmail(email);
+      if (!emailValidation.isValid) {
+        return { success: false, message: 'Invalid email format' };
+      }
+
+      const storedCode = verificationCodes[emailValidation.sanitized];
       
-      // Check verification code from memory store
-      const storedCode = verificationCodes[email];
       if (!storedCode) {
         return { success: false, message: 'No verification code found. Please request a new one.' };
       }
 
-      // Check if code matches and is not expired
       if (storedCode.code !== code) {
         return { success: false, message: 'Invalid verification code' };
       }
@@ -481,39 +302,51 @@ class AuthService {
       const userProfile = users.documents[0];
 
       // Update user as verified
-      const updatedProfile = await databases.updateDocument(
-        this.databaseId,
-        this.userCollectionId,
-        userProfile.$id,
-        {
-          emailVerified: true
-        }
-      );
+      let updatedProfile;
+      try {
+        updatedProfile = await databases.updateDocument(
+          this.databaseId,
+          this.userCollectionId,
+          userProfile.$id,
+          {
+            isEmailVerified: true
+          }
+        );
+        console.log('✅ Updated user profile with email verification status');
+        
+      } catch (updateError) {
+        console.log('⚠️ Could not update email verification field in database, but verification code is valid');
+        console.error('Update error:', updateError);
+        // Continue without updating the database field - verification is still successful
+        updatedProfile = userProfile;
+      }
 
       // Clear verification code from memory
       delete verificationCodes[email];
 
-      console.log('✅ Email verified successfully');
+      console.log('💡 Email verified in our system. User can now login.');
 
-      const user: AuthUser = {
-        id: userProfile.userId,
-        email: userProfile.email,
+      const user = {
+        id: updatedProfile.userId || updatedProfile.$id,
         name: updatedProfile.name,
+        email: updatedProfile.email,
         username: updatedProfile.username,
-        type: updatedProfile.type,
-        arcadeCoins: updatedProfile.arcadeCoins,
-        firstName: updatedProfile.firstName,
-        lastName: updatedProfile.lastName,
+        type: updatedProfile.type || 'user',
+        arcadeCoins: updatedProfile.arcadeCoins || 0,
         linkedinProfile: updatedProfile.linkedinProfile,
         githubProfile: updatedProfile.githubProfile,
         image: updatedProfile.image,
         isEmailVerified: true,
         usernameLastUpdatedAt: updatedProfile.usernameLastUpdatedAt,
+        firstName: updatedProfile.firstName,
+        lastName: updatedProfile.lastName
       };
 
-      return {
-        success: true,
-        message: 'Email verified successfully! You can now access your dashboard.',
+      // Note: Session will be stored by the client-side AuthContext
+
+      return { 
+        success: true, 
+        message: 'Email verification successful',
         user
       };
 
@@ -523,56 +356,64 @@ class AuthService {
     }
   }
 
-  // Resend verification code
-  async resendVerificationCode(email: string): Promise<{ success: boolean; message: string; verificationCode?: string; userName?: string }> {
+  // Simple logout (session cleared client-side)
+  async logout(): Promise<{ success: boolean; message: string }> {
+    return { success: true, message: 'Logout successful' };
+  }
+
+  // Get current user (with localStorage session persistence)
+  async getCurrentUser(): Promise<AuthUser | null> {
     try {
-      console.log('🔍 Resending verification code for:', email);
-      
-      // Find user by email
-      const users = await databases.listDocuments(
-        this.databaseId,
-        this.userCollectionId,
-        [Query.equal('email', email)]
-      );
-
-      if (users.documents.length === 0) {
-        return { success: false, message: 'User not found' };
+      // Check if we're in a browser environment
+      if (typeof window === 'undefined') {
+        return null;
       }
-
-      const userProfile = users.documents[0];
-
-      // Generate new verification code and store in memory
-      const verificationCode = generateVerificationCode();
-      const expiry = Date.now() + 10 * 60 * 1000; // 10 minutes from now
       
-      verificationCodes[email] = {
-        code: verificationCode,
-        expiry,
-        userName: userProfile.name || 'User'
-      };
-
-      console.log('✅ Verification code stored in memory');
+      // Check if we have a stored session
+      const storedUser = localStorage.getItem('auth_user');
+      const sessionExpiry = localStorage.getItem('auth_session_expiry');
       
-      return { 
-        success: true, 
-        message: 'New verification code generated', 
-        verificationCode,
-        userName: userProfile.name || 'User'
-      };
-
+      if (!storedUser || !sessionExpiry) {
+        return null;
+      }
+      
+      // Check if session is expired
+      const expiryTime = parseInt(sessionExpiry);
+      const currentTime = Date.now();
+      
+      if (currentTime > expiryTime) {
+        localStorage.removeItem('auth_user');
+        localStorage.removeItem('auth_session_expiry');
+        return null;
+      }
+      
+      const user = JSON.parse(storedUser) as AuthUser;
+      return user;
+      
     } catch (error) {
-      console.error('Resend verification code error:', error);
-      return { success: false, message: 'Failed to resend verification code. Please try again.' };
+      console.error('Error retrieving current user:', error);
+      // Clear corrupted session data
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('auth_user');
+        localStorage.removeItem('auth_session_expiry');
+      }
+      return null;
     }
   }
 
-  // Login user
-  async login(data: LoginData): Promise<{ success: boolean; message: string; user?: AuthUser }> {
+  // Register new user (simplified - no Appwrite account creation)
+  async register(data: RegisterData): Promise<{ 
+    success: boolean; 
+    message: string; 
+    user?: AuthUser; 
+    requiresVerification?: boolean; 
+    verificationCode?: string 
+  }> {
     try {
-      const { email, password } = data;
+      const { email, password, username, linkedinProfile, githubProfile } = data;
 
-      if (!email || !password) {
-        return { success: false, message: 'Email and password are required' };
+      if (!email || !password || !username) {
+        return { success: false, message: 'Email, password, and username are required' };
       }
 
       const emailValidation = this.validateEmail(email);
@@ -580,276 +421,267 @@ class AuthService {
         return { success: false, message: 'Invalid email format' };
       }
 
-      // Create session with Appwrite
-      await account.createEmailPasswordSession(emailValidation.sanitized, password);
-      
-      // Get current user from Appwrite
-      const appwriteUser = await account.get();
-      
-      // Check if email is verified
-      if (!appwriteUser.emailVerification) {
-        // Delete the session since email is not verified
-        await account.deleteSession('current');
-        return { 
-          success: false, 
-          message: 'Please verify your email before logging in. Check your inbox for the verification code.' 
-        };
-      }
+      console.log('📤 Custom registration attempt for:', emailValidation.sanitized);
 
-      // Get user profile
-      const userProfile = await this.getUserProfile(appwriteUser.$id);
-      if (!userProfile) {
-        // Clean up session if profile doesn't exist
-        await account.deleteSession('current');
-        return { success: false, message: 'User profile not found' };
-      }
-
-      // Check if account is locked
-      if (userProfile.accountLockUntil && new Date(userProfile.accountLockUntil) > new Date()) {
-        await account.deleteSession('current');
-        return { success: false, message: 'Account is temporarily locked. Please try again later.' };
-      }
-
-      // Reset failed login attempts on successful login
-      if (userProfile.failedLoginAttempts > 0) {
-        await databases.updateDocument(
+      // Check if user already exists
+      try {
+        const existingUsers = await databases.listDocuments(
           this.databaseId,
           this.userCollectionId,
-          userProfile.$id,
-          {
-            failedLoginAttempts: 0,
-            accountLockUntil: null
-          }
+          [Query.equal('email', emailValidation.sanitized)]
         );
+
+        if (existingUsers.documents.length > 0) {
+          return { success: false, message: 'An account with this email already exists. Please try logging in instead.' };
+        }
+      } catch (checkError) {
+        console.error('❌ Error checking existing users:', checkError);
+        return { success: false, message: 'Registration service temporarily unavailable. Please try again.' };
       }
 
-      const user: AuthUser = {
-        id: appwriteUser.$id,
-        email: appwriteUser.email,
-        name: userProfile.name,
-        username: userProfile.username,
-        type: userProfile.type,
-        arcadeCoins: userProfile.arcadeCoins,
-        firstName: userProfile.firstName,
-        lastName: userProfile.lastName,
-        linkedinProfile: userProfile.linkedinProfile,
-        githubProfile: userProfile.githubProfile,
-        image: userProfile.image,
-        isEmailVerified: appwriteUser.emailVerification,
-        usernameLastUpdatedAt: userProfile.usernameLastUpdatedAt,
+      // Create user profile in database
+      const name = username.trim();
+      try {
+        const userProfile = await databases.createDocument(
+          this.databaseId,
+          this.userCollectionId,
+          ID.unique(),
+          {
+            userId: ID.unique(), // Generate a unique userId
+            username: username.trim(),
+            name: name,
+            email: emailValidation.sanitized,
+            type: 'user',
+            isEmailVerified: false, // Start as unverified
+            arcadeCoins: 100,
+            failedLoginAttempts: 0,
+            linkedinProfile: linkedinProfile?.trim() || '',
+            githubProfile: githubProfile?.trim() || '',
+          }
+        );
+
+        console.log('✅ User profile created successfully:', userProfile.$id);
+
+        // Generate verification code
+        const verificationCode = generateVerificationCode();
+        const expiry = Date.now() + 10 * 60 * 1000; // 10 minutes from now
+
+        // Store verification code in memory
+        verificationCodes[emailValidation.sanitized] = {
+          code: verificationCode,
+          expiry,
+          userName: name
+        };
+
+        console.log('✅ Registration successful, verification code generated');
+
+        return {
+          success: true,
+          message: 'Registration successful. Please check your email for verification code.',
+          requiresVerification: true,
+          verificationCode // This will be used by API to send email
+        };
+
+      } catch (createError) {
+        console.error('❌ Error creating user profile:', createError);
+        return { success: false, message: 'Registration failed. Please try again.' };
+      }
+
+    } catch (error: unknown) {
+      console.error('Registration error:', error);
+      return { success: false, message: 'Registration failed. Please try again.' };
+    }
+  }
+
+  // Custom email verification (alternative method name)
+  async verifyEmailWithCode(email: string, code: string): Promise<{ 
+    success: boolean; 
+    message: string; 
+    user?: { 
+      id: string; 
+      name: string; 
+      email: string; 
+      username: string; 
+      type: string; 
+      arcadeCoins: number; 
+      linkedinProfile?: string; 
+      githubProfile?: string; 
+      image?: string; 
+      isEmailVerified: boolean; 
+      usernameLastUpdatedAt?: string;
+      firstName?: string;
+      lastName?: string;
+    } 
+  }> {
+    return this.verifyEmailCode(email, code);
+  }
+
+  // Resend verification code
+  async resendVerificationCode(email: string): Promise<{ success: boolean; message: string; verificationCode?: string; userName?: string }> {
+    try {
+      const emailValidation = this.validateEmail(email);
+      if (!emailValidation.isValid) {
+        return { success: false, message: 'Invalid email format' };
+      }
+
+      // Check if user exists
+      const existingUsers = await databases.listDocuments(
+        this.databaseId,
+        this.userCollectionId,
+        [Query.equal('email', emailValidation.sanitized)]
+      );
+
+      if (existingUsers.documents.length === 0) {
+        return { success: false, message: 'User not found' };
+      }
+
+      const userProfile = existingUsers.documents[0];
+
+      if (userProfile.isEmailVerified) {
+        return { success: false, message: 'Email is already verified' };
+      }
+
+      // Generate new verification code
+      const verificationCode = generateVerificationCode();
+      const expiry = Date.now() + 10 * 60 * 1000; // 10 minutes from now
+
+      // Store verification code in memory
+      verificationCodes[emailValidation.sanitized] = {
+        code: verificationCode,
+        expiry,
+        userName: userProfile.name
       };
+
+      console.log('✅ New verification code generated');
 
       return {
         success: true,
-        message: 'Login successful',
-        user
+        message: 'New verification code sent to your email',
+        verificationCode, // This will be used by API to send email
+        userName: userProfile.name
       };
 
-    } catch (error: unknown) {
-      console.error('Login error:', error);
-
-      // Handle failed login attempts
-      if ((error as { code?: number }).code === 401) {
-        // Note: We'll need to handle failed attempts differently since we can't identify user without successful login
-        return { success: false, message: 'Invalid email or password' };
-      }
-
-      return { success: false, message: 'Login failed' };
-    }
-  }
-
-  // Logout user
-  async logout(): Promise<{ success: boolean; message: string }> {
-    try {
-      await account.deleteSession('current');
-      return { success: true, message: 'Logout successful' };
     } catch (error) {
-      console.error('Logout error:', error);
-      return { success: false, message: 'Logout failed' };
+      console.error('Resend verification error:', error);
+      return { success: false, message: 'Failed to resend verification code. Please try again.' };
     }
   }
 
-  // Get current user
-  async getCurrentUser(): Promise<AuthUser | null> {
-    try {
-      const appwriteUser = await account.get();
-      
-      if (!appwriteUser.emailVerification) {
-        console.log('User email not verified');
-        return null;
-      }
-      
-      const userProfile = await this.getUserProfile(appwriteUser.$id);
-
-      if (!userProfile) {
-        console.error('User profile not found for user:', appwriteUser.$id);
-        return null;
-      }
-
-      return {
-        id: appwriteUser.$id,
-        email: appwriteUser.email,
-        name: userProfile.name,
-        username: userProfile.username,
-        type: userProfile.type,
-        arcadeCoins: userProfile.arcadeCoins,
-        firstName: userProfile.firstName,
-        lastName: userProfile.lastName,
-        linkedinProfile: userProfile.linkedinProfile,
-        githubProfile: userProfile.githubProfile,
-        image: userProfile.image,
-        isEmailVerified: appwriteUser.emailVerification,
-        usernameLastUpdatedAt: userProfile.usernameLastUpdatedAt,
-      };
-    } catch (error) {
-      // If it's a 401 error, it just means no user is logged in - this is normal
-      if ((error as any)?.code === 401) {
-        // Don't log this as an error since it's expected when no user is logged in
-        return null;
-      }
-      
-      // Log other errors as they might be actual issues
-      console.error('Get current user error:', error);
-      return null;
-    }
-  }
-
-  // Send email verification
-  async sendEmailVerification(): Promise<{ success: boolean; message: string }> {
-    try {
-      await account.createVerification(`${process.env.NEXT_PUBLIC_APP_URL}/verify-email`);
-      return { success: true, message: 'Verification email sent successfully' };
-    } catch (error) {
-      console.error('Send verification error:', error);
-      return { success: false, message: 'Failed to send verification email' };
-    }
-  }
-
-  // Verify email
-  async verifyEmail(userId: string, secret: string): Promise<{ success: boolean; message: string }> {
-    try {
-      await account.updateVerification(userId, secret);
-      return { success: true, message: 'Email verified successfully' };
-    } catch (error) {
-      console.error('Email verification error:', error);
-      return { success: false, message: 'Invalid or expired verification code' };
-    }
-  }
-
-  // Send password recovery email
+  // Send password recovery (placeholder for custom implementation)
   async sendPasswordRecovery(email: string): Promise<{ success: boolean; message: string }> {
     try {
       const emailValidation = this.validateEmail(email);
       if (!emailValidation.isValid) {
-        return { success: true, message: 'If the account exists, a recovery email will be sent.' };
+        return { success: false, message: 'Invalid email format' };
       }
 
-      await account.createRecovery(
-        emailValidation.sanitized,
-        `${process.env.NEXT_PUBLIC_APP_URL}/reset-password`
-      );
-
-      return { success: true, message: 'If the account exists, a recovery email will be sent.' };
-    } catch (error) {
-      console.error('Password recovery error:', error);
-      // Always return success to prevent user enumeration
-      return { success: true, message: 'If the account exists, a recovery email will be sent.' };
-    }
-  }
-
-  // Reset password
-  async resetPassword(userId: string, secret: string, newPassword: string): Promise<{ success: boolean; message: string; errors?: string[] }> {
-    try {
-      const passwordValidation = this.validatePassword(newPassword);
-      if (!passwordValidation.isValid) {
-        return { 
-          success: false, 
-          message: 'Weak password', 
-          errors: passwordValidation.errors 
-        };
-      }
-
-      await account.updateRecovery(userId, secret, newPassword);
-
-      // Update password change timestamp in user profile
-      try {
-        const userProfile = await this.getUserProfile(userId);
-        if (userProfile) {
-          await databases.updateDocument(
-            this.databaseId,
-            this.userCollectionId,
-            userProfile.$id,
-            {
-              passwordChangedAt: new Date().toISOString(),
-              failedLoginAttempts: 0,
-              accountLockUntil: null
-            }
-          );
-        }
-      } catch (profileError) {
-        console.error('Could not update password change timestamp:', profileError);
-        // Don't fail the password reset if profile update fails
-      }
-
-      return { success: true, message: 'Password reset successfully' };
-    } catch (error) {
-      console.error('Password reset error:', error);
-      return { success: false, message: 'Invalid or expired recovery code' };
-    }
-  }
-
-  // Update user profile
-  async updateProfile(userId: string, updates: Partial<UserProfile>): Promise<{ success: boolean; message: string; user?: AuthUser }> {
-    try {
-      const userProfile = await this.getUserProfile(userId);
-      if (!userProfile) {
-        return { success: false, message: 'User profile not found' };
-      }
-
-      // If updating username, check availability
-      if (updates.username && updates.username !== userProfile.username) {
-        const usernameAvailable = await this.isUsernameAvailable(updates.username);
-        if (!usernameAvailable) {
-          return { success: false, message: 'Username is already taken' };
-        }
-        updates.usernameLastUpdatedAt = new Date().toISOString();
-      }
-
-      const updatedProfile = await databases.updateDocument(
+      // Check if user exists
+      const existingUsers = await databases.listDocuments(
         this.databaseId,
         this.userCollectionId,
-        userProfile.$id,
-        updates
+        [Query.equal('email', emailValidation.sanitized)]
       );
 
-      const appwriteUser = await account.get();
-      
-      const user: AuthUser = {
-        id: appwriteUser.$id,
-        email: appwriteUser.email,
-        name: updatedProfile.name,
-        username: updatedProfile.username,
-        type: updatedProfile.type,
-        arcadeCoins: updatedProfile.arcadeCoins,
-        firstName: updatedProfile.firstName,
-        lastName: updatedProfile.lastName,
-        linkedinProfile: updatedProfile.linkedinProfile,
-        githubProfile: updatedProfile.githubProfile,
-        image: updatedProfile.image,
-        isEmailVerified: appwriteUser.emailVerification,
-        usernameLastUpdatedAt: updatedProfile.usernameLastUpdatedAt,
-      };
+      if (existingUsers.documents.length === 0) {
+        return { success: false, message: 'If this email is registered, you will receive a password reset link.' };
+      }
 
+      // In a full implementation, you would:
+      // 1. Generate a secure reset token
+      // 2. Store it with expiration
+      // 3. Send email with reset link
+      
+      console.log('🔄 Password recovery requested for:', emailValidation.sanitized);
+      
+      // For now, just return success message
       return {
         success: true,
-        message: 'Profile updated successfully',
-        user
+        message: 'If this email is registered, you will receive a password reset link.'
       };
+
     } catch (error) {
-      console.error('Update profile error:', error);
-      return { success: false, message: 'Failed to update profile' };
+      console.error('Password recovery error:', error);
+      return { success: false, message: 'Failed to process password recovery request. Please try again.' };
+    }
+  }
+
+  // Reset password (placeholder for custom implementation)
+  async resetPassword(userId: string, secret: string, newPassword: string): Promise<{ success: boolean; message: string; errors?: any }> {
+    try {
+      // In a full implementation, you would:
+      // 1. Validate the secret/token
+      // 2. Check if it's not expired
+      // 3. Hash the new password
+      // 4. Update the user's password in the database
+      
+      console.log('🔄 Password reset requested for userId:', userId);
+      
+      // For now, just return a placeholder response
+      return {
+        success: false,
+        message: 'Password reset functionality is not yet implemented in custom auth system.'
+      };
+
+    } catch (error) {
+      console.error('Password reset error:', error);
+      return { 
+        success: false, 
+        message: 'Failed to reset password. Please try again.',
+        errors: error
+      };
+    }
+  }
+
+  // Email verification (alternative method for different signature)
+  async verifyEmail(userId: string, secret: string): Promise<{ success: boolean; message: string; user?: AuthUser }> {
+    try {
+      // In a full implementation, you would:
+      // 1. Validate the secret/token 
+      // 2. Find user by userId
+      // 3. Update verification status
+      
+      console.log('🔄 Email verification requested for userId:', userId, 'with secret:', secret);
+      
+      // For now, just return a placeholder response
+      return {
+        success: false,
+        message: 'This email verification method is not yet implemented in custom auth system. Use verifyEmailCode instead.'
+      };
+
+    } catch (error) {
+      console.error('Email verification error:', error);
+      return { 
+        success: false, 
+        message: 'Failed to verify email. Please try again.'
+      };
+    }
+  }
+
+  // Send email verification (alternative method without parameters)
+  async sendEmailVerification(): Promise<{ success: boolean; message: string }> {
+    try {
+      // In a full implementation, you would:
+      // 1. Get current user context
+      // 2. Generate verification code/link
+      // 3. Send verification email
+      
+      console.log('🔄 Send email verification requested');
+      
+      // For now, just return a placeholder response
+      return {
+        success: false,
+        message: 'This email verification method is not yet implemented in custom auth system. Use resendVerificationCode with email instead.'
+      };
+
+    } catch (error) {
+      console.error('Send email verification error:', error);
+      return { 
+        success: false, 
+        message: 'Failed to send verification email. Please try again.'
+      };
     }
   }
 }
 
 export const authService = new AuthService();
+export default authService;

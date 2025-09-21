@@ -6,7 +6,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { blogService } from '@/lib/blogService_new';
 import { formatTags } from '@/lib/tagsHelper';
-import type { Blog, Comment } from '@/lib/appwrite';
+import type { Blog, BlogComment } from '@/lib/appwrite';
 import { 
   FaHeart, 
   FaShare, 
@@ -35,7 +35,7 @@ export default function BlogPostPage() {
   const router = useRouter();
   
   const [blog, setBlog] = useState<Blog | null>(null);
-  const [comments, setComments] = useState<Comment[]>([]);
+  const [comments, setComments] = useState<BlogComment[]>([]);
   const [relatedBlogs, setRelatedBlogs] = useState<Blog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLiked, setIsLiked] = useState(false);
@@ -182,7 +182,7 @@ export default function BlogPostPage() {
       setIsCommenting(true);
       const comment = await blogService.addComment(blog.$id, user.id, newComment.trim(), user.name, undefined);
       setComments(prev => [comment, ...prev]);
-      setBlog(prev => prev ? { ...prev, comments_count: prev.comments_count + 1 } : null);
+      // Comments count is now displayed from actual comments, not stored on blog
       setNewComment('');
     } catch (error) {
       console.error('Error adding comment:', error);
@@ -458,7 +458,7 @@ export default function BlogPostPage() {
         <div className="mb-12">
           <h3 className="text-2xl font-bold mb-6 flex items-center space-x-2" style={{ color: colors.foreground }}>
             <FaComment className="w-6 h-6" />
-            <span>Comments ({blog.comments_count})</span>
+            <span>Comments ({comments.length})</span>
           </h3>
 
           {/* Add Comment */}

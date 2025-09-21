@@ -83,96 +83,86 @@ export const getToolImageUrlFromTool = (tool: Tool): string => {
     return `https://placehold.co/100x100/1C64F2/ffffff?text=${tool.name?.charAt(0) || 'T'}`;
 };
 
-// Blog interface - Matches your exact Appwrite collection schema
+// Blog interface - Updated to match actual Appwrite collection schema
 export interface Blog {
     $id?: string;
-    title: string;
-    subtitle?: string;
-    content: string;
-    excerpt: string;
-    author_id: string;
-    author_name: string;
-    author_avatar?: string;
-    author_bio?: string;
-    featured_image?: string;
-    image?: string;
-    tags: string; // Your DB has this as string, not array
-    category: string;
-    status: string;
-    featured: boolean;
-    readTime: string; // Your DB has this as string, not number
-    reading_time: number; // Optional in your schema (you have both!)
-    views: number;
-    likes: number;
-    comments_count: number;
-    bookmarks: number;
-    rating: number;
-    updated_at: string;
-    date: string;
-    seo_description?: string;
-    slug?: string; // Making this optional since I don't see it as required
+    title: string; // required, size: 255
+    content: string; // required, size: 10000
+    category: string; // required, size: 100
+    featured: boolean; // required
+    image?: string; // size: 500
+    views: number; // required, integer, min: 0, max: 9999999
+    subtitle?: string; // size: 500
+    slug: string; // required, size: 255
+    excerpt?: string; // size: 1000
+    author_name: string; // required, size: 100
+    featured_image?: string; // size: 500
+    status: string; // required, size: 20
+    likes: number; // integer, min: 0, max: 9999999
+    seo_description?: string; // size: 160
+    tags?: string; // size: 500 - stored as string in collection
+    user_id: string; // required, size: 255
     $createdAt?: string;
     $updatedAt?: string;
 }
 
-// User Interaction interface (replaces separate like, bookmark, comment interfaces)
-export interface UserInteraction {
+// User Interaction interface for blog interactions - Updated to match actual collection
+export interface BlogInteraction {
     $id?: string;
-    user_id: string;
-    blog_id: string;
-    interaction_type: 'like' | 'bookmark' | 'comment';
-    content?: string; // For comments
-    user_name?: string; // For comments
-    user_avatar?: string; // For comments
+    user_id: string; // required, size: 50
+    blog_id: string; // required, size: 50
+    interaction_type: 'like' | 'comment' | 'bookmark'; // required, size: 20
+    content?: string; // size: 5000 (for comments)
+    user_name?: string; // size: 100
+    user_avatar?: string; // size: 500
+    parent_comment_id?: string; // size: 255 (for reply comments)
     $createdAt?: string;
     $updatedAt?: string;
 }
 
 // Comment interface (for easier typing when dealing with comments specifically)
-export interface Comment {
+export interface BlogComment {
     $id?: string;
-    user_id: string;
-    blog_id: string;
-    user_name: string;
-    user_avatar?: string;
-    content: string;
-    parent_comment_id?: string; // For replies
-    reply_to_user?: string; // Username being replied to
-    client_request_id?: string; // For duplicate prevention
+    user_id: string; // required, size: 50
+    blog_id: string; // required, size: 50
+    interaction_type: 'comment'; // required, will always be 'comment'
+    content: string; // size: 5000
+    user_name?: string; // size: 100
+    user_avatar?: string; // size: 500
+    parent_comment_id?: string; // size: 255 (for replies)
     $createdAt?: string;
     $updatedAt?: string;
 }
 
-// Tool interface for tools collection
+// Tool interface for tools collection - Clean version
 export interface Tool {
     $id?: string;
     name: string;
     description: string;
     category: string;
-    icon?: string; // Text icon from database
-    imageUrl?: string; // Image URL from database (matches actual schema)
-    link?: string; // Website link (matches actual schema)
-    submittedBy?: string; // User who submitted
-    status?: string; // Approval status
-    views?: number; // View count
-    rating?: number; // Rating score
-    reviewCount?: number; // Number of reviews (matches actual schema)
-    // Legacy fields for compatibility
+    imageUrl?: string; // Tool logo/image URL
+    link: string; // Website URL
+    user_id: string; // Who submitted (changed from submittedBy)
+    status: 'pending' | 'approved' | 'rejected'; // Approval status
+    views: number; // View count
+    rating: number; // Average rating
+    featured: boolean; // Is featured tool
+    tags?: string[]; // Tool tags
+    pricing?: 'free' | 'paid' | 'freemium'; // Pricing model
+    $createdAt?: string;
+    $updatedAt?: string;
+    // Legacy fields for backward compatibility - will be cleaned up later
     reviews?: number;
-    pricing?: string;
-    tags?: string[];
-    featured?: boolean;
-    new?: boolean;
+    reviewCount?: number;
+    icon?: string;
     logo?: string;
     cardColor?: string;
     websiteLink?: string;
     toolImage?: string;
     logoBackgroundColor?: string;
     fallbackIcon?: string;
-    imageurl?: string; // Legacy field
-    $createdAt?: string;
-    $updatedAt?: string;
-    // Computed properties
+    imageurl?: string;
+    new?: boolean;
     computedImageUrl?: string;
 }
 

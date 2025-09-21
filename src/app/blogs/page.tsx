@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { blogService } from '@/lib/blogService_new';
-import { Blog, Comment } from '@/lib/appwrite';
+import { Blog, BlogComment } from '@/lib/appwrite';
 import NavigationWrapper from '@/components/NavigationWrapper';
 import { 
   FaEye, 
@@ -40,7 +40,7 @@ const BlogCard = ({
 }: { 
   blog: Blog; 
   user: any; 
-  commentsData: {[blogId: string]: Comment[]};
+  commentsData: {[blogId: string]: BlogComment[]};
   commentInputs: {[blogId: string]: string};
   loadingComments: {[blogId: string]: boolean};
   replyingTo: {[commentId: string]: boolean};
@@ -94,8 +94,6 @@ const BlogCard = ({
               <span className="font-medium">{blog.author_name || 'Anonymous'}</span>
               <span>•</span>
               <span>{formatDate(blog.$createdAt!)}</span>
-              <span>•</span>
-              <span>{blog.readTime || '5 min read'}</span>
             </div>
           </div>
 
@@ -107,14 +105,14 @@ const BlogCard = ({
           {/* Tags */}
           {blog.tags && (
             <div className="flex flex-wrap gap-2 mb-4">
-              {(typeof blog.tags === 'string' ? blog.tags.split(',') : blog.tags)
+              {(blog.tags ? blog.tags.split(',').map(tag => tag.trim()).filter(tag => tag) : [])
                 .slice(0, 3)
-                .map((tag, index) => (
+                .map((tag: string, index: number) => (
                   <span 
                     key={index}
                     className="px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full text-xs font-medium"
                   >
-                    {tag.trim()}
+                    {tag}
                   </span>
                 ))}
             </div>
@@ -131,7 +129,7 @@ const BlogCard = ({
 
               <button className="flex items-center space-x-1 text-gray-500 dark:text-gray-400 hover:text-blue-500">
                 <FaComment className="w-4 h-4" />
-                <span className="text-sm">{blog.comments_count || 0}</span>
+                <span className="text-sm">{commentsData[blog.$id!]?.length || 0}</span>
               </button>
 
               <button className="flex items-center space-x-1 text-gray-500 dark:text-gray-400 hover:text-green-500">
@@ -201,7 +199,7 @@ const BlogCard = ({
             {commentsData[blog.$id!]
               .filter(comment => !comment.parent_comment_id) // Only show main comments first
               .slice(0, showAllComments[blog.$id!] ? undefined : 3) // Show 3 initially, all when expanded
-              .map((comment: Comment) => (
+              .map((comment: BlogComment) => (
               <div key={comment.$id} className="space-y-3">
                 {/* Main Comment */}
                 <div className="flex items-start space-x-3">
@@ -247,7 +245,7 @@ const BlogCard = ({
                     {/* Replies to this comment - YouTube style */}
                     {commentsData[blog.$id!]
                       .filter(reply => reply.parent_comment_id === comment.$id)
-                      .map((reply: Comment) => (
+                      .map((reply: BlogComment) => (
                         <div key={reply.$id} className="mt-3 ml-6 pl-4 border-l-2 border-gray-200 dark:border-gray-600">
                           <div className="flex items-start space-x-3">
                             <div className="w-6 h-6 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center">
@@ -265,9 +263,9 @@ const BlogCard = ({
                                 </span>
                               </div>
                               <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">
-                                {reply.reply_to_user && reply.reply_to_user !== comment.user_name && (
+                                {reply.parent_comment_id && (
                                   <span className="text-blue-600 dark:text-blue-400 font-medium">
-                                    @{reply.reply_to_user}{' '}
+                                    Reply:{' '}
                                   </span>
                                 )}
                                 {reply.content}
@@ -276,7 +274,7 @@ const BlogCard = ({
                               {/* Reply Actions - YouTube style */}
                               <div className="flex items-center space-x-4 mt-2">
                                 <button 
-                                  onClick={() => handleReplyToReply(comment.$id!, reply.user_name)}
+                                  onClick={() => handleReplyToReply(comment.$id!, reply.user_name || '')}
                                   className="text-xs text-gray-500 dark:text-gray-400 hover:text-blue-500 transition-colors font-medium"
                                 >
                                   Reply
@@ -399,7 +397,7 @@ export default function BlogsPage() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
-  const [commentsData, setCommentsData] = useState<{[blogId: string]: Comment[]}>({});
+  const [commentsData, setCommentsData] = useState<{[blogId: string]: BlogComment[]}>({});
   const [commentInputs, setCommentInputs] = useState<{[blogId: string]: string}>({});
   const [loadingComments, setLoadingComments] = useState<{[blogId: string]: boolean}>({});
   const [replyingTo, setReplyingTo] = useState<{[commentId: string]: boolean}>({});
@@ -463,11 +461,11 @@ export default function BlogsPage() {
 
       // Fetch comments for each blog
       const commentsPromises = result.blogs.map(blog => 
-        blogService.getComments(blog.$id!).catch(() => [] as Comment[])
+        blogService.getComments(blog.$id!).catch(() => [] as BlogComment[])
       );
       const commentsResults = await Promise.all(commentsPromises);
       
-      const newCommentsData: {[blogId: string]: Comment[]} = {};
+      const newCommentsData: {[blogId: string]: BlogComment[]} = {};
       result.blogs.forEach((blog, index) => {
         newCommentsData[blog.$id!] = commentsResults[index];
       });
@@ -550,10 +548,7 @@ export default function BlogsPage() {
         [blogId]: [comment, ...(prev[blogId] || [])]
       }));
       
-      // Update blog comments count
-      setBlogs(prev => prev.map(blog => 
-        blog.$id === blogId ? { ...blog, comments_count: (blog.comments_count || 0) + 1 } : blog
-      ));
+      // Comments count is now displayed from actual commentsData, not stored on blog
       
       // Clear input
       setCommentInputs(prev => ({ ...prev, [blogId]: '' }));
@@ -594,7 +589,6 @@ export default function BlogsPage() {
           user: comment.user_name,
           content: comment.content?.substring(0, 50),
           parent_id: comment.parent_comment_id || 'NO_PARENT',
-          reply_to: comment.reply_to_user || 'NO_REPLY_TO',
           is_main_comment: !comment.parent_comment_id
         });
       });
@@ -728,8 +722,7 @@ export default function BlogsPage() {
         cleanContent, // Use clean content without @mention
         user.name, 
         undefined, // userAvatar
-        parentCommentId, 
-        replyToUser
+        parentCommentId
       );
       
       // Update comments data
@@ -738,10 +731,7 @@ export default function BlogsPage() {
         [blogId]: [reply, ...(prev[blogId] || [])]
       }));
       
-      // Update blog comments count
-      setBlogs(prev => prev.map(blog => 
-        blog.$id === blogId ? { ...blog, comments_count: (blog.comments_count || 0) + 1 } : blog
-      ));
+      // Comments count is now displayed from actual commentsData, not stored on blog
       
       // Clear reply input and close reply form
       setReplyInputs(prev => ({ ...prev, [parentCommentId]: '' }));
@@ -780,7 +770,7 @@ export default function BlogsPage() {
     try {
       setLoadingComments(prev => ({ ...prev, [`delete-${commentId}`]: true }));
       
-      await blogService.deleteComment(commentId, blogId);
+      await blogService.deleteComment(commentId);
       
       // Remove comment from local state
       setCommentsData(prev => ({
@@ -788,10 +778,7 @@ export default function BlogsPage() {
         [blogId]: prev[blogId]?.filter(comment => comment.$id !== commentId) || []
       }));
       
-      // Update blog comments count
-      setBlogs(prev => prev.map(blog => 
-        blog.$id === blogId ? { ...blog, comments_count: Math.max((blog.comments_count || 0) - 1, 0) } : blog
-      ));
+      // Comments count is now displayed from actual commentsData, not stored on blog
     } catch (error) {
       console.error('Error deleting comment:', error);
     } finally {

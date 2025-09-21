@@ -2,8 +2,9 @@
 
 import { Client, Account, OAuthProvider, ID } from 'appwrite';
 import { useEffect, useState, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
 
 const client = new Client()
@@ -73,7 +74,16 @@ function SignupContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [showEmailSignup, setShowEmailSignup] = useState(false);
   const { colors, theme } = useTheme();
+  const { signup, user, loading } = useAuth();
+  const router = useRouter();
   const searchParams = useSearchParams();
+
+  // Redirect authenticated users to dashboard
+  useEffect(() => {
+    if (!loading && user) {
+      router.push('/dashboard');
+    }
+  }, [user, loading, router]);
 
   useEffect(() => {
     const errorParam = searchParams.get('error');
@@ -81,6 +91,18 @@ function SignupContent() {
       setError('OAuth authentication failed. Please try again.');
     }
   }, [searchParams]);
+
+  // Don't render the form if user is authenticated or still loading
+  if (loading || user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-white mx-auto"></div>
+          <p className="mt-2 text-sm opacity-70">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,9 +124,11 @@ function SignupContent() {
     }
 
     try {
-      await handleEmailSignup(email, password, username);
+      await signup(email, password, username);
+      // Redirect to verify-email page since signup usually requires email verification
+      router.push(`/verify-email?email=${encodeURIComponent(email)}`);
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || 'Signup failed. Please try again.');
     } finally {
       setIsLoading(false);
     }

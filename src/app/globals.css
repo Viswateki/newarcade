@@ -681,6 +681,24 @@ header .nav-trigger * {
   }
 }
 
+@keyframes slide-in-from-right-12 {
+  from {
+    transform: translateX(3rem);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes slide-in-from-left-12 {
+  from {
+    transform: translateX(-3rem);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
 @keyframes slide-out-to-right-52 {
   from {
     transform: translateX(0);
@@ -699,9 +717,36 @@ header .nav-trigger * {
   }
 }
 
+@keyframes slide-out-to-right-12 {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(3rem);
+  }
+}
+
+@keyframes slide-out-to-left-12 {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-3rem);
+  }
+}
+
 @keyframes zoom-in-90 {
   from {
     transform: scale(0.9);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes zoom-in-95 {
+  from {
+    transform: scale(0.95);
   }
   to {
     transform: scale(1);
@@ -756,6 +801,18 @@ header .nav-trigger * {
   animation-timing-function: ease-out;
 }
 
+.slide-in-from-right-12 {
+  animation-name: slide-in-from-right-12;
+  animation-duration: 0.3s;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.slide-in-from-left-12 {
+  animation-name: slide-in-from-left-12;
+  animation-duration: 0.3s;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 .slide-out-to-right-52 {
   animation-name: slide-out-to-right-52;
   animation-duration: 0.15s;
@@ -768,16 +825,43 @@ header .nav-trigger * {
   animation-timing-function: ease-in;
 }
 
+.slide-out-to-right-12 {
+  animation-name: slide-out-to-right-12;
+  animation-duration: 0.2s;
+  animation-timing-function: cubic-bezier(0.7, 0, 0.84, 0);
+}
+
+.slide-out-to-left-12 {
+  animation-name: slide-out-to-left-12;
+  animation-duration: 0.2s;
+  animation-timing-function: cubic-bezier(0.7, 0, 0.84, 0);
+}
+
 .zoom-in-90 {
   animation-name: zoom-in-90;
   animation-duration: 0.15s;
   animation-timing-function: ease-out;
 }
 
+.zoom-in-95 {
+  animation-name: zoom-in-95;
+  animation-duration: 0.3s;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 .zoom-out-95 {
   animation-name: zoom-out-95;
   animation-duration: 0.15s;
   animation-timing-function: ease-in;
+}
+
+/* Animation duration utilities */
+.duration-200 {
+  animation-duration: 0.2s !important;
+}
+
+.duration-300 {
+  animation-duration: 0.3s !important;
 }
 
 /* Data attribute animations for Radix UI */

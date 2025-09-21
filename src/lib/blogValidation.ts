@@ -2,36 +2,27 @@
 
 export const getRequiredBlogAttributes = () => {
   return [
-    'title',
-    'content', 
-    'author_id',
-    'date',
-    'category',
-    'author_name',
-    'status',
-    'readTime', // Required in your schema
-    'views',
-    'rating',
-    'featured'
+    'title',        // required, size: 255
+    'content',      // required, size: 10000
+    'category',     // required, size: 100
+    'featured',     // required, boolean
+    'views',        // required, integer, min: 0, max: 9999999
+    'slug',         // required, size: 255
+    'author_name',  // required, size: 100
+    'status',       // required, size: 20
+    'user_id'       // required, size: 255
   ];
 };
 
 export const getOptionalBlogAttributes = () => {
   return [
-    'subtitle',
-    'excerpt',
-    'author_avatar',
-    'author_bio', 
-    'featured_image',
-    'image',
-    'seo_description',
-    'updated_at',
-    'likes',
-    'comments_count',
-    'bookmarks',
-    'reading_time', // Optional in your schema
-    'tags',
-    'slug'
+    'subtitle',           // size: 500
+    'excerpt',            // size: 1000
+    'image',              // size: 500
+    'featured_image',     // size: 500
+    'seo_description',    // size: 160
+    'tags',               // size: 500 (stored as string)
+    'likes'               // integer, min: 0, max: 9999999
   ];
 };
 

@@ -77,15 +77,20 @@ export function UserAccountDropdown({ className = '' }: UserAccountDropdownProps
 
       {isOpen && (
         <div 
-          className="absolute right-0 mt-2 w-56 rounded-lg shadow-lg border py-2 z-50"
+          className="absolute right-0 mt-2 w-64 rounded-lg shadow-lg border py-2 z-50"
           style={{ backgroundColor: colors.card, borderColor: colors.border }}
         >
           {user ? (
             <>
               {/* User info header */}
               <div className="px-4 py-3 border-b" style={{ borderColor: colors.border }}>
-                <div className="font-semibold">{user.name || user.username}</div>
-                <div className="text-sm opacity-70">{user.email}</div>
+                <div className="font-semibold text-sm truncate">{user.name || user.username}</div>
+                <div className="text-xs opacity-70 truncate" title={user.email}>
+                  {user.email && user.email.length > 25 
+                    ? `${user.email.substring(0, 22)}...` 
+                    : user.email
+                  }
+                </div>
               </div>
               
               {/* User menu items */}

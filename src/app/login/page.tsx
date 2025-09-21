@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import Link from 'next/link';
@@ -25,9 +25,24 @@ function LoginContent() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showEmailLogin, setShowEmailLogin] = useState(false);
+  
+  // Verification states
+  const [showVerification, setShowVerification] = useState(false);
+  const [verificationEmail, setVerificationEmail] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
+  
   const { colors, theme } = useTheme();
-  const { login, checkUserExists } = useAuth();
+  const { login, checkUserExists, user, loading } = useAuth();
   const searchParams = useSearchParams();
+  const router = useRouter();
+
+  // Redirect authenticated users to dashboard
+  useEffect(() => {
+    if (!loading && user) {
+      router.push('/dashboard');
+    }
+  }, [user, loading, router]);
 
   useEffect(() => {
     const errorParam = searchParams.get('error');
@@ -36,18 +51,96 @@ function LoginContent() {
     }
   }, [searchParams]);
 
+  // Don't render the form if user is authenticated or still loading
+  if (loading || user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-white mx-auto"></div>
+          <p className="mt-2 text-sm opacity-70">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
 
     try {
-      // Simple login without OAuth checks since OAuth is disabled
-      await login(email, password);
+      const result = await login(email, password);
+      
+      if (result.requiresVerification) {
+        // User needs verification
+        setShowVerification(true);
+        setVerificationEmail(result.email || email);
+        setError(''); // Clear any previous errors
+        if (result.showCode) {
+          console.log('Debug verification code:', result.showCode);
+        }
+      } else {
+        // Successful login, redirect to dashboard
+        router.push('/dashboard');
+      }
     } catch (err: any) {
       setError(err.message || 'Login failed. Please check your credentials.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleVerificationSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsVerifying(true);
+    setError('');
+
+    try {
+      const response = await fetch('/api/auth/verify-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          email: verificationEmail, 
+          code: verificationCode 
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Email verified successfully, now try login again
+        const loginResult = await login(email, password);
+        if (!loginResult.requiresVerification) {
+          router.push('/dashboard');
+        }
+      } else {
+        setError(result.message || 'Verification failed');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Verification failed. Please try again.');
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const handleResendCode = async () => {
+    try {
+      const response = await fetch('/api/auth/verify-email', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: verificationEmail }),
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        setError('');
+        alert('New verification code sent to your email!');
+      } else {
+        setError(result.message || 'Failed to resend code');
+      }
+    } catch (err: any) {
+      setError('Failed to resend verification code');
     }
   };
 
@@ -175,94 +268,179 @@ function LoginContent() {
               </button>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div>
-                <label 
-                  htmlFor="email" 
-                  className="block text-sm font-medium mb-2"
-                  style={{ color: colors.cardForeground }}
-                >
-                  Email
-                </label>
-                <input
-                  id="email"
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-opacity-50 focus:border-opacity-50 transition-all duration-200 outline-none"
-                  style={{ 
-                    backgroundColor: colors.background, 
-                    borderColor: colors.border,
-                    color: colors.foreground,
-                    '--tw-ring-color': colors.accent
-                  } as React.CSSProperties}
-                  placeholder="m@example.com"
-                />
-              </div>
+            <>
+              {!showVerification ? (
+                <form onSubmit={handleSubmit} className="space-y-5">
+                  <div>
+                    <label 
+                      htmlFor="email" 
+                      className="block text-sm font-medium mb-2"
+                      style={{ color: colors.cardForeground }}
+                    >
+                      Email
+                    </label>
+                    <input
+                      id="email"
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-opacity-50 focus:border-opacity-50 transition-all duration-200 outline-none"
+                      style={{ 
+                        backgroundColor: colors.background, 
+                        borderColor: colors.border,
+                        color: colors.foreground,
+                        '--tw-ring-color': colors.accent
+                      } as React.CSSProperties}
+                      placeholder="m@example.com"
+                    />
+                  </div>
 
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label 
-                    htmlFor="password" 
-                    className="block text-sm font-medium"
-                    style={{ color: colors.cardForeground }}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label 
+                        htmlFor="password" 
+                        className="block text-sm font-medium"
+                        style={{ color: colors.cardForeground }}
+                      >
+                        Password
+                      </label>
+                      <Link 
+                        href="/forgot-password" 
+                        className="text-sm hover:underline transition-colors duration-200"
+                        style={{ color: colors.accent }}
+                      >
+                        Forgot your password?
+                      </Link>
+                    </div>
+                    <input
+                      id="password"
+                      type="password"
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-opacity-50 focus:border-opacity-50 transition-all duration-200 outline-none"
+                      style={{ 
+                        backgroundColor: colors.background, 
+                        borderColor: colors.border,
+                        color: colors.foreground,
+                        '--tw-ring-color': colors.accent
+                      } as React.CSSProperties}
+                      placeholder="Enter your password"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full font-medium py-3 px-4 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ 
+                      backgroundColor: colors.accent, 
+                      color: 'white' 
+                    }}
                   >
-                    Password
-                  </label>
-                  <Link 
-                    href="/forgot-password" 
-                    className="text-sm hover:underline transition-colors duration-200"
+                    {isLoading ? (
+                      <div className="flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                        Signing in...
+                      </div>
+                    ) : (
+                      'Login'
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowEmailLogin(false)}
+                    className="w-full text-sm hover:underline transition-colors duration-200 py-2"
                     style={{ color: colors.accent }}
                   >
-                    Forgot your password?
-                  </Link>
-                </div>
-                <input
-                  id="password"
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-opacity-50 focus:border-opacity-50 transition-all duration-200 outline-none"
-                  style={{ 
-                    backgroundColor: colors.background, 
-                    borderColor: colors.border,
-                    color: colors.foreground,
-                    '--tw-ring-color': colors.accent
-                  } as React.CSSProperties}
-                  placeholder="Enter your password"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full font-medium py-3 px-4 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{ 
-                  backgroundColor: colors.accent, 
-                  color: 'white' 
-                }}
-              >
-                {isLoading ? (
-                  <div className="flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                    Signing in...
+                    ← Back to other options
+                  </button>
+                </form>
+              ) : (
+                <div className="space-y-5">
+                  <div className="text-center mb-6">
+                    <h3 className="text-lg font-medium mb-2" style={{ color: colors.foreground }}>
+                      Verify Your Email
+                    </h3>
+                    <p className="text-sm" style={{ color: colors.cardForeground, opacity: 0.8 }}>
+                      We've sent a verification code to {verificationEmail}
+                    </p>
                   </div>
-                ) : (
-                  'Login'
-                )}
-              </button>
 
-              <button
-                type="button"
-                onClick={() => setShowEmailLogin(false)}
-                className="w-full text-sm hover:underline transition-colors duration-200 py-2"
-                style={{ color: colors.accent }}
-              >
-                ← Back to other options
-              </button>
-            </form>
+                  <form onSubmit={handleVerificationSubmit} className="space-y-5">
+                    <div>
+                      <label 
+                        htmlFor="verification-code" 
+                        className="block text-sm font-medium mb-2"
+                        style={{ color: colors.cardForeground }}
+                      >
+                        Verification Code
+                      </label>
+                      <input
+                        id="verification-code"
+                        type="text"
+                        required
+                        maxLength={6}
+                        value={verificationCode}
+                        onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-opacity-50 focus:border-opacity-50 transition-all duration-200 outline-none text-center text-lg tracking-widest"
+                        style={{ 
+                          backgroundColor: colors.background, 
+                          borderColor: colors.border,
+                          color: colors.foreground,
+                          '--tw-ring-color': colors.accent
+                        } as React.CSSProperties}
+                        placeholder="000000"
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={isVerifying || verificationCode.length !== 6}
+                      className="w-full font-medium py-3 px-4 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      style={{ 
+                        backgroundColor: colors.accent, 
+                        color: 'white' 
+                      }}
+                    >
+                      {isVerifying ? (
+                        <div className="flex items-center justify-center">
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                          Verifying...
+                        </div>
+                      ) : (
+                        'Verify & Sign In'
+                      )}
+                    </button>
+                  </form>
+
+                  <div className="flex justify-between items-center text-sm pt-4">
+                    <button
+                      type="button"
+                      onClick={handleResendCode}
+                      className="hover:underline transition-colors duration-200"
+                      style={{ color: colors.accent }}
+                    >
+                      Resend code
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowVerification(false);
+                        setVerificationCode('');
+                        setError('');
+                      }}
+                      className="hover:underline transition-colors duration-200"
+                      style={{ color: colors.cardForeground }}
+                    >
+                      ← Back to login
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

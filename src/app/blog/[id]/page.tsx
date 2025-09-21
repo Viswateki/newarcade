@@ -6,7 +6,8 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { blogService } from '@/lib/blogService_new';
 import { formatTags } from '@/lib/tagsHelper';
-import type { Blog, Comment } from '@/lib/appwrite';
+import type { Blog } from '@/lib/appwrite';
+import CommentsSection from '@/components/CommentsSection';
 import { 
   FaHeart, 
   FaShare, 
@@ -36,16 +37,11 @@ export default function BlogPostPage() {
   const router = useRouter();
   
   const [blog, setBlog] = useState<Blog | null>(null);
-  const [comments, setComments] = useState<Comment[]>([]);
   const [relatedBlogs, setRelatedBlogs] = useState<Blog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLiked, setIsLiked] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [newComment, setNewComment] = useState('');
-  const [isCommenting, setIsCommenting] = useState(false);
-  const [replyingTo, setReplyingTo] = useState<string | null>(null);
-  const [replyContent, setReplyContent] = useState('');
   
   // Reading experience states
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -113,10 +109,6 @@ export default function BlogPostPage() {
       
       // Increment view count
       await blogService.incrementViews(id as string);
-      
-      // Fetch comments
-      const blogComments = await blogService.getComments(id as string);
-      setComments(blogComments);
       
       // Fetch related blogs
       if (blogPost.category) {
@@ -190,58 +182,6 @@ export default function BlogPostPage() {
       window.open(shareUrl, '_blank', 'width=600,height=400');
     }
     setShowShareMenu(false);
-  };
-
-  const handleComment = async () => {
-    if (!user || !blog || !newComment.trim() || !blog.$id) return;
-    
-    try {
-      setIsCommenting(true);
-      const comment = await blogService.addComment(blog.$id, user.id, newComment.trim(), user.name, undefined);
-      setComments(prev => [comment, ...prev]);
-      setBlog(prev => prev ? { ...prev, comments_count: prev.comments_count + 1 } : null);
-      setNewComment('');
-    } catch (error) {
-      console.error('Error adding comment:', error);
-    } finally {
-      setIsCommenting(false);
-    }
-  };
-
-  const handleReply = async (parentCommentId: string, replyToUser: string) => {
-    if (!user || !blog || !replyContent.trim() || !blog.$id) return;
-    
-    try {
-      setIsCommenting(true);
-      const reply = await blogService.addComment(
-        blog.$id, 
-        user.id, 
-        replyContent.trim(), 
-        user.name, 
-        undefined,
-        parentCommentId,
-        replyToUser
-      );
-      setComments(prev => [reply, ...prev]);
-      setBlog(prev => prev ? { ...prev, comments_count: prev.comments_count + 1 } : null);
-      setReplyContent('');
-      setReplyingTo(null);
-    } catch (error) {
-      console.error('Error adding reply:', error);
-    } finally {
-      setIsCommenting(false);
-    }
-  };
-
-  // Organize comments into parent-child structure
-  const organizeComments = (comments: Comment[]) => {
-    const parentComments = comments.filter(comment => !comment.parent_comment_id);
-    const childComments = comments.filter(comment => comment.parent_comment_id);
-    
-    return parentComments.map(parent => ({
-      ...parent,
-      replies: childComments.filter(child => child.parent_comment_id === parent.$id)
-    }));
   };
 
   const formatDate = (dateString?: string) => {
@@ -589,185 +529,10 @@ export default function BlogPostPage() {
         </div>
 
         {/* Comments Section */}
-        <div className="mb-12">
-          {/* Add Comment Form - Positioned at the top */}
-          {user && (
-            <div className="mb-8 p-6 rounded-xl border" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
-              <div className="flex space-x-4">
-                <div 
-                  className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0"
-                  style={{ backgroundColor: colors.accent }}
-                >
-                  {user.name?.charAt(0)?.toUpperCase() || 'U'}
-                </div>
-                <div className="flex-1">
-                  <textarea
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    placeholder="Write a comment..."
-                    className="w-full p-4 border rounded-lg resize-none focus:outline-none focus:ring-2"
-                    style={{ 
-                      backgroundColor: colors.background, 
-                      borderColor: colors.border,
-                      color: colors.foreground
-                    }}
-                    rows={3}
-                  />
-                  <div className="flex justify-end mt-3">
-                    <button
-                      onClick={handleComment}
-                      disabled={!newComment.trim() || isCommenting}
-                      className="flex items-center space-x-2 px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <FaPaperPlane className="w-4 h-4" />
-                      <span>{isCommenting ? 'Posting...' : 'Post Comment'}</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Comments Heading with Count */}
-          <h3 className="text-2xl font-bold mb-6 flex items-center space-x-2" style={{ color: colors.foreground }}>
-            <FaComment className="w-6 h-6" />
-            <span>Comments ({blog.comments_count})</span>
-          </h3>
-
-          {/* Comments List */}
-          <div className="space-y-6">
-            {organizeComments(comments).map((comment) => (
-              <div key={comment.$id} className="space-y-4">
-                {/* Parent Comment */}
-                <div className="flex space-x-4">
-                  <div 
-                    className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0"
-                    style={{ backgroundColor: colors.accent }}
-                  >
-                    {comment.user_avatar ? (
-                      <img src={comment.user_avatar} alt={comment.user_name} className="w-10 h-10 rounded-full object-cover" />
-                    ) : (
-                      comment.user_name?.charAt(0)?.toUpperCase() || 'A'
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2 mb-1">
-                      <h4 className="font-semibold" style={{ color: colors.foreground }}>
-                        {comment.user_name}
-                      </h4>
-                      <span className="text-sm opacity-60" style={{ color: colors.foreground }}>
-                        {formatDate(comment.$createdAt)}
-                      </span>
-                    </div>
-                    <p className="leading-relaxed mb-2" style={{ color: colors.foreground }}>
-                      {comment.content}
-                    </p>
-                    {/* Reply Button */}
-                    {user && (
-                      <button
-                        onClick={() => setReplyingTo(comment.$id || null)}
-                        className="flex items-center space-x-1 text-sm opacity-70 hover:opacity-100 transition-opacity"
-                        style={{ color: colors.foreground }}
-                      >
-                        <FaReply className="w-3 h-3" />
-                        <span>Reply</span>
-                      </button>
-                    )}
-                    
-                    {/* Reply Input */}
-                    {replyingTo === comment.$id && user && (
-                      <div className="mt-3 p-4 rounded-lg border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
-                        <div className="flex space-x-3">
-                          <div 
-                            className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0"
-                            style={{ backgroundColor: colors.accent }}
-                          >
-                            {user.name?.charAt(0)?.toUpperCase() || 'U'}
-                          </div>
-                          <div className="flex-1">
-                            <textarea
-                              value={replyContent}
-                              onChange={(e) => setReplyContent(e.target.value)}
-                              placeholder={`Reply to ${comment.user_name}...`}
-                              className="w-full p-3 border rounded-lg resize-none focus:outline-none focus:ring-2"
-                              style={{ 
-                                backgroundColor: colors.card, 
-                                borderColor: colors.border,
-                                color: colors.foreground
-                              }}
-                              rows={2}
-                            />
-                            <div className="flex justify-end space-x-2 mt-2">
-                              <button
-                                onClick={() => {
-                                  setReplyingTo(null);
-                                  setReplyContent('');
-                                }}
-                                className="px-4 py-2 text-sm rounded-lg border transition-colors"
-                                style={{ 
-                                  borderColor: colors.border,
-                                  color: colors.foreground,
-                                  backgroundColor: colors.background
-                                }}
-                              >
-                                Cancel
-                              </button>
-                              <button
-                                onClick={() => handleReply(comment.$id || '', comment.user_name)}
-                                disabled={!replyContent.trim() || isCommenting}
-                                className="px-4 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                              >
-                                {isCommenting ? 'Replying...' : 'Reply'}
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Replies */}
-                {comment.replies && comment.replies.length > 0 && (
-                  <div className="ml-12 space-y-4">
-                    {comment.replies.map((reply) => (
-                      <div key={reply.$id} className="flex space-x-4">
-                        <div 
-                          className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0"
-                          style={{ backgroundColor: colors.accent }}
-                        >
-                          {reply.user_avatar ? (
-                            <img src={reply.user_avatar} alt={reply.user_name} className="w-8 h-8 rounded-full object-cover" />
-                          ) : (
-                            reply.user_name?.charAt(0)?.toUpperCase() || 'A'
-                          )}
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-1">
-                            <h4 className="font-semibold text-sm" style={{ color: colors.foreground }}>
-                              {reply.user_name}
-                            </h4>
-                            {reply.reply_to_user && (
-                              <span className="text-xs opacity-60" style={{ color: colors.foreground }}>
-                                replying to @{reply.reply_to_user}
-                              </span>
-                            )}
-                            <span className="text-xs opacity-60" style={{ color: colors.foreground }}>
-                              {formatDate(reply.$createdAt)}
-                            </span>
-                          </div>
-                          <p className="leading-relaxed text-sm" style={{ color: colors.foreground }}>
-                            {reply.content}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
+        <CommentsSection 
+          blogId={blog.$id!}
+          currentUser={user}
+        />
 
         {/* Related Posts */}
         {relatedBlogs.length > 0 && (
