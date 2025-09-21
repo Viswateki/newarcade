@@ -5,6 +5,10 @@ import bcrypt from 'bcryptjs';
 // In-memory storage for verification codes
 const verificationCodes: { [email: string]: { code: string; expiry: number; userName: string } } = {};
 
+// Track when the server starts
+const serverStartTime = new Date().toISOString();
+console.log('🚀 AuthService initialized at:', serverStartTime);
+
 // Generate 6-digit verification code
 function generateVerificationCode(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -343,35 +347,59 @@ class AuthService {
         return { success: false, message: 'Invalid email format' };
       }
 
-      const storedCode = verificationCodes[emailValidation.sanitized];
-      
-      if (!storedCode) {
-        return { success: false, message: 'No verification code found. Please request a new one.' };
-      }
+      console.log('🔍 Verifying email code for:', emailValidation.sanitized);
+      console.log('🔍 Provided code:', code);
 
-      if (storedCode.code !== code) {
-        return { success: false, message: 'Invalid verification code' };
-      }
-
-      if (Date.now() > storedCode.expiry) {
-        delete verificationCodes[email];
-        return { success: false, message: 'Verification code has expired. Please request a new one.' };
-      }
-
-      // Find user by email
+      // Find user by email and get verification code from database
       const users = await databases.listDocuments(
         this.databaseId,
         this.userCollectionId,
-        [Query.equal('email', email)]
+        [Query.equal('email', emailValidation.sanitized)]
       );
 
       if (users.documents.length === 0) {
         return { success: false, message: 'User not found' };
       }
 
-      const userProfile = users.documents[0];
+      const userProfile = users.documents[0] as unknown as UserProfile;
+      console.log('🔍 Found user profile with verification data');
 
-      // Update user as verified
+      // Check if verification code exists in database
+      if (!userProfile.verificationCode) {
+        console.log('❌ No verification code found in database for:', emailValidation.sanitized);
+        return { 
+          success: false, 
+          message: 'No verification code found. Please request a new one.' 
+        };
+      }
+
+      // Check if verification code matches
+      if (userProfile.verificationCode !== code) {
+        console.log('❌ Invalid verification code provided');
+        return { success: false, message: 'Invalid verification code' };
+      }
+
+      // Check if verification code has expired
+      if (userProfile.verificationCodeExpiry && new Date(userProfile.verificationCodeExpiry) < new Date()) {
+        console.log('❌ Verification code has expired');
+        // Clear expired code from database
+        try {
+          await databases.updateDocument(
+            this.databaseId,
+            this.userCollectionId,
+            userProfile.$id,
+            {
+              verificationCode: null,
+              verificationCodeExpiry: null
+            }
+          );
+        } catch (clearError) {
+          console.error('⚠️ Could not clear expired verification code:', clearError);
+        }
+        return { success: false, message: 'Verification code has expired. Please request a new one.' };
+      }
+
+      // Update user as verified and clear verification code
       let updatedProfile;
       try {
         updatedProfile = await databases.updateDocument(
@@ -379,10 +407,12 @@ class AuthService {
           this.userCollectionId,
           userProfile.$id,
           {
-            isEmailVerified: true
+            isEmailVerified: true,
+            verificationCode: null, // Clear verification code after successful verification
+            verificationCodeExpiry: null // Clear expiry as well
           }
         );
-        console.log('✅ Updated user profile with email verification status');
+        console.log('✅ Updated user profile with email verification status and cleared verification code');
         
       } catch (updateError) {
         console.log('⚠️ Could not update email verification field in database, but verification code is valid');
@@ -390,9 +420,6 @@ class AuthService {
         // Continue without updating the database field - verification is still successful
         updatedProfile = userProfile;
       }
-
-      // Clear verification code from memory
-      delete verificationCodes[email];
 
       console.log('💡 Email verified in our system. User can now login.');
 
@@ -477,7 +504,8 @@ class AuthService {
     message: string; 
     user?: AuthUser; 
     requiresVerification?: boolean; 
-    verificationCode?: string 
+    verificationCode?: string;
+    userName?: string;
   }> {
     try {
       const { email, password, username, linkedinProfile, githubProfile } = data;
@@ -513,6 +541,20 @@ class AuthService {
         if (existingUsers.documents.length > 0) {
           return { success: false, message: 'An account with this email already exists. Please try logging in instead.' };
         }
+
+        // Also check if username is already taken
+        const existingUsernames = await databases.listDocuments(
+          this.databaseId,
+          this.userCollectionId,
+          [Query.equal('username', username.trim())]
+        );
+
+        if (existingUsernames.documents.length > 0) {
+          return { success: false, message: 'This username is already taken. Please choose a different username.' };
+        }
+
+        console.log('✅ Email and username are available');
+        
       } catch (checkError) {
         console.error('❌ Error checking existing users:', checkError);
         return { success: false, message: 'Registration service temporarily unavailable. Please try again.' };
@@ -528,12 +570,17 @@ class AuthService {
       };
       
       try {
+        // Generate verification code first
+        const verificationCode = generateVerificationCode();
+        const expiry = Date.now() + 20 * 60 * 1000; // 20 minutes from now
+        
+        // Let Appwrite generate unique IDs automatically
         const userProfile = await databases.createDocument(
           this.databaseId,
           this.userCollectionId,
-          ID.unique(),
+          ID.unique(), // Let Appwrite handle the document ID generation
           {
-            userId: ID.unique(), // Generate a unique userId
+            userId: ID.unique(), // Generate a unique userId for our reference
             username: username.trim(),
             name: name,
             email: emailValidation.sanitized,
@@ -543,33 +590,40 @@ class AuthService {
             failedLoginAttempts: 0,
             passwordHash: passwordHash, // Store the hashed password
             social_links: JSON.stringify(socialLinks), // Store as JSON string
+            verificationCode: verificationCode, // Store verification code in database
+            verificationCodeExpiry: new Date(expiry).toISOString(), // Store expiry in database
           }
         );
 
         console.log('✅ User profile created successfully:', userProfile.$id);
+        console.log('🔍 Stored verification code in database:', verificationCode);
 
-        // Generate verification code
-        const verificationCode = generateVerificationCode();
-        const expiry = Date.now() + 10 * 60 * 1000; // 10 minutes from now
-
-        // Store verification code in memory
-        verificationCodes[emailValidation.sanitized] = {
-          code: verificationCode,
-          expiry,
-          userName: name
-        };
-
-        console.log('✅ Registration successful, verification code generated');
+        console.log('✅ Registration successful, verification code stored in database');
 
         return {
           success: true,
           message: 'Registration successful. Please check your email for verification code.',
           requiresVerification: true,
-          verificationCode // This will be used by API to send email
+          verificationCode, // This will be used by API to send email
+          userName: name // Include userName for the API to use
         };
 
-      } catch (createError) {
+      } catch (createError: any) {
         console.error('❌ Error creating user profile:', createError);
+        console.error('❌ Error details:', {
+          type: createError.type,
+          code: createError.code,
+          message: createError.message
+        });
+        
+        // Handle specific Appwrite document already exists error
+        if (createError.type === 'document_already_exists' || createError.message?.includes('already exists')) {
+          return { 
+            success: false, 
+            message: 'Registration conflict detected. Please try again with a different email or username.' 
+          };
+        }
+        
         return { success: false, message: 'Registration failed. Please try again.' };
       }
 
@@ -629,16 +683,25 @@ class AuthService {
 
       // Generate new verification code
       const verificationCode = generateVerificationCode();
-      const expiry = Date.now() + 10 * 60 * 1000; // 10 minutes from now
+      const expiry = Date.now() + 20 * 60 * 1000; // 20 minutes from now
 
-      // Store verification code in memory
-      verificationCodes[emailValidation.sanitized] = {
-        code: verificationCode,
-        expiry,
-        userName: userProfile.name
-      };
-
-      console.log('✅ New verification code generated');
+      // Store new verification code in database
+      try {
+        await databases.updateDocument(
+          this.databaseId,
+          this.userCollectionId,
+          userProfile.$id,
+          {
+            verificationCode: verificationCode,
+            verificationCodeExpiry: new Date(expiry).toISOString()
+          }
+        );
+        console.log('✅ New verification code stored in database');
+        console.log('🔍 Resend - Stored code for email:', emailValidation.sanitized, 'Code:', verificationCode);
+      } catch (updateError) {
+        console.error('❌ Failed to store verification code in database:', updateError);
+        return { success: false, message: 'Failed to generate new verification code. Please try again.' };
+      }
 
       return {
         success: true,

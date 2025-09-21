@@ -25,7 +25,8 @@ export async function POST(request: NextRequest) {
         if (resendResult.success && resendResult.verificationCode) {
           // Send verification email using internal API call
           try {
-            const emailResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/auth/send-email-verification`, {
+            const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+            const emailResponse = await fetch(`${baseUrl}/api/auth/send-email-verification`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -120,9 +121,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Send verification email if registration was successful and requires verification
-    if (result.requiresVerification && result.verificationCode && result.user) {
+    if (result.requiresVerification && result.verificationCode) {
+      console.log('📧 Sending verification email for registration...');
+      console.log('📧 Email details:', { email, code: result.verificationCode, name: username });
       try {
-        const emailResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/auth/send-email-verification`, {
+        const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+        const emailResponse = await fetch(`${baseUrl}/api/auth/send-email-verification`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -130,17 +134,20 @@ export async function POST(request: NextRequest) {
           body: JSON.stringify({
             email,
             code: result.verificationCode,
-            name: result.user.name,
+            name: result.userName || username, // Use userName from result or fallback to username
             type: 'registration'
           })
         });
         
+        console.log('📧 Email API response status:', emailResponse.status);
         const emailResult = await emailResponse.json();
+        console.log('📧 Email API response:', emailResult);
         
         if (emailResult.success) {
-          console.log('✅ Registration and email sent successfully');
+          console.log('✅ Registration and verification email sent successfully');
         } else {
           console.error('❌ Registration successful but failed to send verification email:', emailResult.message);
+          // Don't fail the registration, just log the email error
         }
       } catch (emailError) {
         console.error('❌ Registration successful but failed to send verification email:', emailError);
