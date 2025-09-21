@@ -2,6 +2,7 @@ import nodemailer from 'nodemailer';
 
 export interface EmailService {
   sendVerificationCode: (email: string, code: string, name: string) => Promise<void>;
+  sendEmailChangeVerification: (email: string, code: string, name: string) => Promise<void>;
 }
 
 class GmailEmailService implements EmailService {
@@ -81,6 +82,73 @@ AI Arcade Team
     } catch (error) {
       console.error('❌ Failed to send verification email:', error);
       throw new Error('Failed to send verification email');
+    }
+  }
+
+  async sendEmailChangeVerification(email: string, code: string, name: string): Promise<void> {
+    const mailOptions = {
+      from: process.env.EMAIL_FROM!,
+      to: email,
+      subject: 'AI Arcade - Verify Your New Email Address',
+      html: `
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px; font-family: Arial, sans-serif;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #2563eb; margin: 0;">AI Arcade</h1>
+            <p style="color: #6b7280; margin: 5px 0;">Email Change Verification</p>
+          </div>
+          
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 12px; text-align: center; margin-bottom: 20px;">
+            <h2 style="color: white; margin: 0 0 10px 0;">Verify Your New Email</h2>
+            <p style="color: rgba(255,255,255,0.9); margin: 0;">You requested to change your email address. Please verify this new email address.</p>
+          </div>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; display: inline-block;">
+              <p style="margin: 0 0 10px 0; color: #374151; font-size: 14px;">Your verification code is:</p>
+              <div style="font-size: 32px; font-weight: bold; color: #2563eb; letter-spacing: 8px; font-family: 'Courier New', monospace;">${code}</div>
+            </div>
+          </div>
+          
+          <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 15px; margin: 20px 0;">
+            <p style="margin: 0; color: #92400e; font-size: 14px;">
+              <strong>⏱️ This code expires in 10 minutes</strong><br>
+              If you didn't request this email change, please ignore this email and contact support.
+            </p>
+          </div>
+          
+          <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+            <p style="color: #6b7280; font-size: 12px; margin: 0;">
+              This email change was requested from your AI Arcade account.
+            </p>
+          </div>
+        </div>
+      `,
+      text: `
+AI Arcade - Email Change Verification
+
+Hi ${name},
+
+You requested to change your email address to this new email.
+
+Your verification code is: ${code}
+
+Enter this code in the settings page to complete your email change.
+
+This code expires in 10 minutes.
+
+If you didn't request this email change, please ignore this email and contact support.
+
+Best regards,
+AI Arcade Team
+      `.trim()
+    };
+
+    try {
+      await this.transporter.sendMail(mailOptions);
+      console.log('✅ Email change verification sent successfully to:', email);
+    } catch (error) {
+      console.error('❌ Failed to send email change verification:', error);
+      throw new Error('Failed to send email change verification');
     }
   }
 }

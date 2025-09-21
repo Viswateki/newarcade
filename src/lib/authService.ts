@@ -1,5 +1,6 @@
 import { Client, Databases, Storage, Account, ID, Query } from 'appwrite';
 import { databases } from './appwrite';
+import bcrypt from 'bcryptjs';
 
 // In-memory storage for verification codes
 const verificationCodes: { [email: string]: { code: string; expiry: number; userName: string } } = {};
@@ -7,6 +8,27 @@ const verificationCodes: { [email: string]: { code: string; expiry: number; user
 // Generate 6-digit verification code
 function generateVerificationCode(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+// Password hashing utilities
+const SALT_ROUNDS = 12; // Higher number = more secure but slower
+
+async function hashPassword(password: string): Promise<string> {
+  try {
+    return await bcrypt.hash(password, SALT_ROUNDS);
+  } catch (error) {
+    console.error('Error hashing password:', error);
+    throw new Error('Failed to hash password');
+  }
+}
+
+async function verifyPassword(password: string, hashedPassword: string): Promise<boolean> {
+  try {
+    return await bcrypt.compare(password, hashedPassword);
+  } catch (error) {
+    console.error('Error verifying password:', error);
+    return false;
+  }
 }
 
 export interface UserProfile {
@@ -21,10 +43,12 @@ export interface UserProfile {
   lastName?: string;
   linkedinProfile?: string;
   githubProfile?: string;
+  social_links?: string;
   image?: string;
   isEmailVerified: boolean;
   avatar?: string;
   usernameLastUpdatedAt?: string;
+  passwordHash?: string; // Stores the hashed password
   failedLoginAttempts: number;
   accountLockUntil?: string;
   passwordChangedAt?: string;
@@ -58,6 +82,7 @@ export interface AuthUser {
   lastName?: string;
   linkedinProfile?: string;
   githubProfile?: string;
+  social_links?: string | object;
   image?: string;
   isEmailVerified: boolean;
   usernameLastUpdatedAt?: string;
@@ -163,9 +188,40 @@ class AuthService {
         isEmailVerified: userProfile.isEmailVerified
       });
 
-      // For now, we'll skip password verification since we don't store hashed passwords
-      // In a production system, you should hash and verify passwords
-      console.log('⚠️ Note: Password verification skipped - implement proper password hashing');
+      // Verify password against stored hash
+      if (!userProfile.passwordHash) {
+        console.log('❌ No password hash found - user may need to reset password');
+        return { success: false, message: 'Invalid email or password. If you registered before this update, please reset your password.' };
+      }
+
+      console.log('🔐 Verifying password...');
+      const isPasswordValid = await verifyPassword(password, userProfile.passwordHash);
+      
+      if (!isPasswordValid) {
+        console.log('❌ Invalid password provided');
+        
+        // Increment failed login attempts
+        try {
+          await databases.updateDocument(
+            this.databaseId,
+            this.userCollectionId,
+            userProfile.$id,
+            {
+              failedLoginAttempts: userProfile.failedLoginAttempts + 1,
+              // Lock account after 5 failed attempts for 15 minutes
+              ...(userProfile.failedLoginAttempts + 1 >= 5 && {
+                accountLockUntil: new Date(Date.now() + 15 * 60 * 1000).toISOString()
+              })
+            }
+          );
+        } catch (updateError) {
+          console.error('⚠️ Could not update failed login attempts:', updateError);
+        }
+
+        return { success: false, message: 'Invalid email or password' };
+      }
+
+      console.log('✅ Password verified successfully');
 
       // Check if user is verified
       if (!userProfile.isEmailVerified) {
@@ -216,6 +272,19 @@ class AuthService {
         }
       }
 
+      // Parse social links from the user document
+      let socialLinks: any = {};
+      try {
+        if (userProfile.social_links) {
+          socialLinks = typeof userProfile.social_links === 'string' 
+            ? JSON.parse(userProfile.social_links) 
+            : userProfile.social_links;
+        }
+      } catch (e) {
+        console.log('⚠️ Could not parse social links:', e);
+        socialLinks = {};
+      }
+
       // Create user object for successful login
       const user: AuthUser = {
         id: userProfile.userId,
@@ -226,8 +295,9 @@ class AuthService {
         arcadeCoins: userProfile.arcadeCoins,
         firstName: userProfile.firstName,
         lastName: userProfile.lastName,
-        linkedinProfile: userProfile.linkedinProfile,
-        githubProfile: userProfile.githubProfile,
+        linkedinProfile: socialLinks.linkedin,
+        githubProfile: socialLinks.github,
+        social_links: userProfile.social_links,
         image: userProfile.image,
         isEmailVerified: userProfile.isEmailVerified,
         usernameLastUpdatedAt: userProfile.usernameLastUpdatedAt,
@@ -421,7 +491,16 @@ class AuthService {
         return { success: false, message: 'Invalid email format' };
       }
 
+      // Validate password strength
+      if (password.length < 8) {
+        return { success: false, message: 'Password must be at least 8 characters long' };
+      }
+
       console.log('📤 Custom registration attempt for:', emailValidation.sanitized);
+
+      // Hash password before storing
+      console.log('🔐 Hashing password...');
+      const passwordHash = await hashPassword(password);
 
       // Check if user already exists
       try {
@@ -441,6 +520,13 @@ class AuthService {
 
       // Create user profile in database
       const name = username.trim();
+      
+      // Prepare social links as JSON string
+      const socialLinks = {
+        linkedin: linkedinProfile?.trim() || '',
+        github: githubProfile?.trim() || ''
+      };
+      
       try {
         const userProfile = await databases.createDocument(
           this.databaseId,
@@ -455,8 +541,8 @@ class AuthService {
             isEmailVerified: false, // Start as unverified
             arcadeCoins: 100,
             failedLoginAttempts: 0,
-            linkedinProfile: linkedinProfile?.trim() || '',
-            githubProfile: githubProfile?.trim() || '',
+            passwordHash: passwordHash, // Store the hashed password
+            social_links: JSON.stringify(socialLinks), // Store as JSON string
           }
         );
 
@@ -770,13 +856,26 @@ class AuthService {
       // Update local session if this is the current user
       const currentUser = await this.getCurrentUser();
       if (currentUser && currentUser.id === userId) {
+        // Parse social links for session update
+        let socialLinks: any = {};
+        try {
+          if (updateData.social_links) {
+            socialLinks = typeof updateData.social_links === 'string' 
+              ? JSON.parse(updateData.social_links) 
+              : updateData.social_links;
+          }
+        } catch (e) {
+          socialLinks = {};
+        }
+
         const updatedSessionUser: AuthUser = {
           ...currentUser,
           username: updateData.username || currentUser.username,
           firstName: updateData.firstName ?? currentUser.firstName,
           lastName: updateData.lastName ?? currentUser.lastName,
-          linkedinProfile: profileData.linkedinProfile ?? currentUser.linkedinProfile,
-          githubProfile: profileData.githubProfile ?? currentUser.githubProfile,
+          linkedinProfile: socialLinks.linkedin ?? currentUser.linkedinProfile,
+          githubProfile: socialLinks.github ?? currentUser.githubProfile,
+          social_links: updateData.social_links || currentUser.social_links,
         };
         this.storeUserSession(updatedSessionUser);
       }
@@ -796,7 +895,7 @@ class AuthService {
     }
   }
 
-  // Change password
+  // Change password - Database-only approach (no Appwrite account needed)
   async changePassword(currentPassword: string, newPassword: string): Promise<{ 
     success: boolean; 
     message: string; 
@@ -812,16 +911,11 @@ class AuthService {
 
       console.log('🔐 Attempting to change password for:', currentUser.email);
 
-      // Verify current password by attempting login
-      const loginResult = await this.login({
-        email: currentUser.email,
-        password: currentPassword
-      });
-
-      if (!loginResult.success) {
+      // Validate current password
+      if (!currentPassword) {
         return { 
           success: false, 
-          message: 'Current password is incorrect' 
+          message: 'Current password is required' 
         };
       }
 
@@ -833,11 +927,11 @@ class AuthService {
         };
       }
 
-      // Find the user document
+      // Get user from database to verify current password
       const userResponse = await databases.listDocuments(
         this.databaseId,
         this.userCollectionId,
-        [Query.equal('userId', currentUser.id)]
+        [Query.equal('email', currentUser.email)]
       );
 
       if (userResponse.documents.length === 0) {
@@ -847,21 +941,42 @@ class AuthService {
         };
       }
 
-      const userDoc = userResponse.documents[0];
-      
-      // Hash the new password (in a real app, you'd use proper password hashing)
-      // For this implementation, we'll store it as-is (NOT recommended for production)
-      const updateData = {
-        password: newPassword,
-        passwordChangedAt: new Date().toISOString()
-      };
+      const userDoc = userResponse.documents[0] as unknown as UserProfile;
 
-      // Update the password
+      // Verify current password
+      if (!userDoc.passwordHash) {
+        return { 
+          success: false, 
+          message: 'Password not set. Please reset your password.' 
+        };
+      }
+
+      console.log('🔐 Verifying current password...');
+      const isCurrentPasswordValid = await verifyPassword(currentPassword, userDoc.passwordHash);
+      
+      if (!isCurrentPasswordValid) {
+        console.log('❌ Current password is incorrect');
+        return { 
+          success: false, 
+          message: 'Current password is incorrect' 
+        };
+      }
+
+      console.log('✅ Current password verified successfully');
+
+      // Hash the new password
+      console.log('🔐 Hashing new password...');
+      const newPasswordHash = await hashPassword(newPassword);
+
+      // Update password hash and passwordChangedAt in the database
       await databases.updateDocument(
         this.databaseId,
         this.userCollectionId,
         userDoc.$id,
-        updateData
+        {
+          passwordHash: newPasswordHash,
+          passwordChangedAt: new Date().toISOString(),
+        }
       );
 
       console.log('✅ Password changed successfully');
@@ -872,7 +987,7 @@ class AuthService {
       };
 
     } catch (error) {
-      console.error('❌ Change password error:', error);
+      console.error('❌ Error changing password:', error);
       return { 
         success: false, 
         message: 'Failed to change password. Please try again.' 
@@ -935,19 +1050,50 @@ class AuthService {
       const verificationCode = generateVerificationCode();
       const expiry = Date.now() + 10 * 60 * 1000; // 10 minutes
 
-      // Store verification code (in a real app, you'd send this via email)
+      // Store verification code
       verificationCodes[emailValidation.sanitized] = {
         code: verificationCode,
         expiry,
         userName: currentUser.username || currentUser.name || 'User'
       };
 
-      console.log('📧 Email change verification code generated:', verificationCode);
+      // Send verification email
+      try {
+        const response = await fetch('/api/auth/send-email-verification', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: emailValidation.sanitized,
+            code: verificationCode,
+            name: currentUser.username || currentUser.name || 'User',
+            type: 'email-change'
+          })
+        });
+
+        const result = await response.json();
+        
+        if (!result.success) {
+          console.error('❌ Failed to send verification email:', result.message);
+          return { 
+            success: false, 
+            message: 'Failed to send verification email. Please try again.' 
+          };
+        }
+        
+        console.log('📧 Email change verification sent to:', emailValidation.sanitized);
+      } catch (emailError) {
+        console.error('❌ Failed to send verification email:', emailError);
+        return { 
+          success: false, 
+          message: 'Failed to send verification email. Please check your connection.' 
+        };
+      }
 
       return { 
         success: true, 
-        message: `Verification code sent to ${newEmail}`,
-        verificationCode // In production, don't return this - send via email instead
+        message: `Verification code sent to ${newEmail}. Please check your inbox.`,
       };
 
     } catch (error) {

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authService } from '@/lib/authService';
-import { emailService } from '@/lib/emailService';
 
 export async function POST(request: NextRequest) {
   try {
@@ -86,12 +85,31 @@ export async function PUT(request: NextRequest) {
     // Send verification email if code generation was successful
     if (result.verificationCode && result.userName) {
       try {
-        await emailService.sendVerificationCode(
-          email,
-          result.verificationCode,
-          result.userName
-        );
-        console.log('✅ Resend verification email sent successfully');
+        const emailResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/auth/send-email-verification`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email,
+            code: result.verificationCode,
+            name: result.userName,
+            type: 'registration'
+          })
+        });
+        
+        const emailResult = await emailResponse.json();
+        
+        if (emailResult.success) {
+          console.log('✅ Resend verification email sent successfully');
+        } else {
+          console.error('❌ Failed to send resend verification email:', emailResult.message);
+          return NextResponse.json({
+            success: true,
+            message: 'New verification code generated, but email sending failed. Please try again.',
+            showCode: result.verificationCode // Show code to user if email fails
+          });
+        }
       } catch (emailError) {
         console.error('❌ Failed to send resend verification email:', emailError);
         // Still return success since the code was generated

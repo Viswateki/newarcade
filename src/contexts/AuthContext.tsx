@@ -27,6 +27,7 @@ interface AuthContextType {
   signup: (email: string, password: string, username: string, linkedinProfile?: string, githubProfile?: string) => Promise<void>;
   logout: () => Promise<void>;
   checkUserExists: (email: string) => Promise<{ exists: boolean }>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -66,6 +67,7 @@ const clearUserSession = (): void => {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [lastRefresh, setLastRefresh] = useState<number>(0);
 
   useEffect(() => {
     checkAuth();
@@ -73,20 +75,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const checkAuth = async () => {
     try {
-      console.log('Checking authentication...');
+      console.log('🔍 Checking authentication...');
       const currentUser = await authService.getCurrentUser();
       
       if (currentUser) {
+        console.log('✅ User authenticated successfully:', currentUser.email);
         setUser(currentUser);
-        console.log('User authenticated successfully');
       } else {
+        console.log('❌ No authenticated user found');
         setUser(null);
       }
     } catch (error) {
-      console.error('Auth check failed:', error);
+      console.error('❌ Auth check failed:', error);
       setUser(null);
     } finally {
       setLoading(false);
+      console.log('🏁 Auth check completed, loading set to false');
     }
   };
 
@@ -102,6 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       if (result.success && result.user) {
         // Successful login
+        console.log('✅ Login successful, setting user:', result.user);
         setUser(result.user);
         
         // Store session in localStorage (client-side)
@@ -167,6 +172,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const refreshUser = async () => {
+    try {
+      // Prevent too frequent refreshes (minimum 5 seconds between refreshes)
+      const now = Date.now();
+      if (now - lastRefresh < 5000) {
+        console.log('⏭️ User data refresh skipped (too frequent)');
+        return;
+      }
+      
+      console.log('🔄 Refreshing user data from database...');
+      
+      // Get fresh user data by calling the API instead of using cached data
+      const response = await fetch('/api/auth/me', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('📡 API response:', result);
+        
+        if (result.success && result.user) {
+          console.log('✅ Fresh user data received:', result.user);
+          setUser(result.user);
+          storeUserSession(result.user);
+          setLastRefresh(now);
+        } else if (result.success && !result.authenticated) {
+          console.log('⚠️ User not authenticated according to API');
+          // Don't clear user state here as it might be a temporary issue
+        } else {
+          console.log('❌ No user data found in API response');
+        }
+      } else {
+        console.log('❌ API call failed with status:', response.status);
+      }
+    } catch (error) {
+      console.error('❌ Failed to refresh user data:', error);
+    }
+  };
+
   return (
     <AuthContext.Provider value={{ 
       user, 
@@ -174,7 +221,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       login, 
       signup, 
       logout, 
-      checkUserExists 
+      checkUserExists,
+      refreshUser
     }}>
       {children}
     </AuthContext.Provider>

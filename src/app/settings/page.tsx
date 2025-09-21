@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/ProtectedRoute';
@@ -31,12 +31,13 @@ function ProfileOverview() {
   const getSocialLinks = () => {
     try {
       if (user?.social_links) {
-        return typeof user.social_links === 'string' 
+        const parsed = typeof user.social_links === 'string' 
           ? JSON.parse(user.social_links) 
           : user.social_links;
+        return parsed;
       }
       return {};
-    } catch {
+    } catch (e) {
       return {};
     }
   };
@@ -129,16 +130,17 @@ function ProfileOverview() {
 // Edit Profile Component
 function EditProfile() {
   const { colors } = useTheme();
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
   const getSocialLinks = () => {
     try {
       if (user?.social_links) {
-        return typeof user.social_links === 'string' 
+        const parsed = typeof user.social_links === 'string' 
           ? JSON.parse(user.social_links) 
           : user.social_links;
+        return parsed;
       }
       return {};
     } catch {
@@ -155,6 +157,18 @@ function EditProfile() {
     linkedinProfile: socialLinks.linkedin || '',
     githubProfile: socialLinks.github || ''
   });
+
+  // Update form data when user data changes
+  useEffect(() => {
+    const updatedSocialLinks = getSocialLinks();
+    setFormData({
+      firstName: user?.firstName || '',
+      lastName: user?.lastName || '',
+      username: user?.username || '',
+      linkedinProfile: updatedSocialLinks.linkedin || '',
+      githubProfile: updatedSocialLinks.github || ''
+    });
+  }, [user, user?.social_links]);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({
@@ -184,7 +198,8 @@ function EditProfile() {
 
       if (result.success) {
         setMessage({ type: 'success', text: 'Profile updated successfully!' });
-        // The AuthContext should automatically update, but we can trigger a refresh if needed
+        // Refresh user data from database to get latest changes
+        await refreshUser();
       } else {
         setMessage({ type: 'error', text: result.message });
       }
@@ -912,8 +927,20 @@ function SecuritySettings() {
 
 export default function SettingsPage() {
   const { colors, theme } = useTheme();
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
+
+  // Auto-refresh user data when settings page loads to ensure latest data
+  useEffect(() => {
+    // Longer delay to ensure login state is stable
+    const timer = setTimeout(() => {
+      if (user) { // Only refresh if we have a user
+        refreshUser();
+      }
+    }, 2000);
+    
+    return () => clearTimeout(timer);
+  }, [user]); // Depend on user so it runs after login
 
   const handleSignOut = async () => {
     try {
