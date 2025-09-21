@@ -25,6 +25,8 @@ export async function POST(request: NextRequest) {
     // Send appropriate email based on type
     if (type === 'email-change') {
       await emailService.sendEmailChangeVerification(email, code, name);
+    } else if (type === 'password-reset') {
+      await emailService.sendPasswordResetCode(email, code, name);
     } else {
       // Default to regular verification
       await emailService.sendVerificationCode(email, code, name);

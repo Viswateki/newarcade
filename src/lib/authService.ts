@@ -653,13 +653,20 @@ class AuthService {
     }
   }
 
-  // Send password recovery (placeholder for custom implementation)
-  async sendPasswordRecovery(email: string): Promise<{ success: boolean; message: string }> {
+  // Send password recovery
+  async sendPasswordRecovery(email: string): Promise<{ 
+    success: boolean; 
+    message: string; 
+    verificationCode?: string;
+    userName?: string;
+  }> {
     try {
       const emailValidation = this.validateEmail(email);
       if (!emailValidation.isValid) {
         return { success: false, message: 'Invalid email format' };
       }
+
+      console.log('🔄 Password recovery requested for:', emailValidation.sanitized);
 
       // Check if user exists
       const existingUsers = await databases.listDocuments(
@@ -669,20 +676,34 @@ class AuthService {
       );
 
       if (existingUsers.documents.length === 0) {
-        return { success: false, message: 'If this email is registered, you will receive a password reset link.' };
+        // Don't reveal if email exists or not for security
+        return { 
+          success: true, 
+          message: 'If this email is registered, you will receive a password reset code.' 
+        };
       }
 
-      // In a full implementation, you would:
-      // 1. Generate a secure reset token
-      // 2. Store it with expiration
-      // 3. Send email with reset link
+      const userProfile = existingUsers.documents[0];
+
+      // Generate verification code for password reset
+      const verificationCode = generateVerificationCode();
+      const expiry = Date.now() + 15 * 60 * 1000; // 15 minutes for password reset
+
+      // Store verification code with 'password-reset' prefix to distinguish from other codes
+      const resetKey = `password-reset:${emailValidation.sanitized}`;
+      verificationCodes[resetKey] = {
+        code: verificationCode,
+        expiry,
+        userName: userProfile.name || userProfile.username
+      };
+
+      console.log('✅ Password reset verification code generated');
       
-      console.log('🔄 Password recovery requested for:', emailValidation.sanitized);
-      
-      // For now, just return success message
       return {
         success: true,
-        message: 'If this email is registered, you will receive a password reset link.'
+        message: 'If this email is registered, you will receive a password reset code.',
+        verificationCode, // This will be used by API to send email
+        userName: userProfile.name || userProfile.username
       };
 
     } catch (error) {
@@ -691,21 +712,149 @@ class AuthService {
     }
   }
 
-  // Reset password (placeholder for custom implementation)
-  async resetPassword(userId: string, secret: string, newPassword: string): Promise<{ success: boolean; message: string; errors?: any }> {
+  // Verify password reset code
+  async verifyPasswordResetCode(email: string, code: string): Promise<{ 
+    success: boolean; 
+    message: string; 
+    isValidCode?: boolean;
+  }> {
     try {
-      // In a full implementation, you would:
-      // 1. Validate the secret/token
-      // 2. Check if it's not expired
-      // 3. Hash the new password
-      // 4. Update the user's password in the database
+      const emailValidation = this.validateEmail(email);
+      if (!emailValidation.isValid) {
+        return { success: false, message: 'Invalid email format' };
+      }
+
+      const resetKey = `password-reset:${emailValidation.sanitized}`;
+      const storedCode = verificationCodes[resetKey];
       
-      console.log('🔄 Password reset requested for userId:', userId);
+      if (!storedCode) {
+        return { 
+          success: false, 
+          message: 'No password reset code found. Please request a new one.' 
+        };
+      }
+
+      if (Date.now() > storedCode.expiry) {
+        delete verificationCodes[resetKey];
+        return { 
+          success: false, 
+          message: 'Password reset code has expired. Please request a new one.' 
+        };
+      }
+
+      if (storedCode.code !== code) {
+        return { 
+          success: false, 
+          message: 'Invalid password reset code' 
+        };
+      }
+
+      console.log('✅ Password reset code verified successfully');
+
+      return { 
+        success: true, 
+        message: 'Code verified successfully',
+        isValidCode: true
+      };
+
+    } catch (error) {
+      console.error('Password reset code verification error:', error);
+      return { 
+        success: false, 
+        message: 'Failed to verify code. Please try again.' 
+      };
+    }
+  }
+
+  // Reset password with verification code
+  async resetPassword(email: string, verificationCode: string, newPassword: string): Promise<{ 
+    success: boolean; 
+    message: string; 
+    errors?: any 
+  }> {
+    try {
+      const emailValidation = this.validateEmail(email);
+      if (!emailValidation.isValid) {
+        return { success: false, message: 'Invalid email format' };
+      }
+
+      // Validate new password
+      if (!newPassword || newPassword.length < 8) {
+        return { 
+          success: false, 
+          message: 'New password must be at least 8 characters long' 
+        };
+      }
+
+      console.log('🔄 Password reset requested for:', emailValidation.sanitized);
+
+      // Verify the reset code first
+      const resetKey = `password-reset:${emailValidation.sanitized}`;
+      const storedCode = verificationCodes[resetKey];
       
-      // For now, just return a placeholder response
+      if (!storedCode) {
+        return { 
+          success: false, 
+          message: 'Invalid or expired reset code. Please request a new one.' 
+        };
+      }
+
+      if (Date.now() > storedCode.expiry) {
+        delete verificationCodes[resetKey];
+        return { 
+          success: false, 
+          message: 'Reset code has expired. Please request a new one.' 
+        };
+      }
+
+      if (storedCode.code !== verificationCode) {
+        return { 
+          success: false, 
+          message: 'Invalid reset code' 
+        };
+      }
+
+      // Find user by email
+      const userResponse = await databases.listDocuments(
+        this.databaseId,
+        this.userCollectionId,
+        [Query.equal('email', emailValidation.sanitized)]
+      );
+
+      if (userResponse.documents.length === 0) {
+        return { 
+          success: false, 
+          message: 'User not found' 
+        };
+      }
+
+      const userDoc = userResponse.documents[0] as unknown as UserProfile;
+
+      // Hash the new password
+      console.log('🔐 Hashing new password...');
+      const newPasswordHash = await hashPassword(newPassword);
+
+      // Update password hash and reset failed login attempts
+      await databases.updateDocument(
+        this.databaseId,
+        this.userCollectionId,
+        userDoc.$id,
+        {
+          passwordHash: newPasswordHash,
+          passwordChangedAt: new Date().toISOString(),
+          failedLoginAttempts: 0, // Reset failed attempts
+          accountLockUntil: null // Remove any account lock
+        }
+      );
+
+      // Clear the verification code
+      delete verificationCodes[resetKey];
+
+      console.log('✅ Password reset successful');
+
       return {
-        success: false,
-        message: 'Password reset functionality is not yet implemented in custom auth system.'
+        success: true,
+        message: 'Password reset successful! You can now log in with your new password.'
       };
 
     } catch (error) {
