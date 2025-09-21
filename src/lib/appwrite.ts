@@ -63,24 +63,42 @@ export const getToolImageUrl = (fileIdOrUrl: string): string => {
 
 // Helper function specifically for tool images with fallback logic
 export const getToolImageUrlFromTool = (tool: Tool): string => {
-    // Priority order: imageUrl (current database field) -> logo -> imageurl (legacy) -> toolImage -> fallbackIcon
+    // Priority order: imageUrl (current database field) -> logo -> imageurl (legacy) -> toolImage
     const imageSource = tool.imageUrl || 
                        tool.logo || 
                        tool.imageurl ||
-                       tool.toolImage || 
-                       tool.fallbackIcon;
+                       tool.toolImage;
     
-    if (imageSource) {
+    if (imageSource && imageSource.trim() !== '') {
         // If it's already a full URL (which it should be from Appwrite storage), return as is
         if (imageSource.startsWith('http://') || imageSource.startsWith('https://')) {
+            return imageSource;
+        }
+        // If it's a data URL (base64 encoded image), return as is
+        if (imageSource.startsWith('data:')) {
             return imageSource;
         }
         // If it's a file ID, construct the URL
         return getToolImageUrl(imageSource);
     }
     
-    // Fallback to placeholder with first letter
-    return `https://placehold.co/100x100/1C64F2/ffffff?text=${tool.name?.charAt(0) || 'T'}`;
+    // Return empty string if no actual image - let the frontend handle fallback icons
+    return '';
+};
+
+// Helper function to parse categories from JSON string
+export const getToolCategories = (tool: Tool): string[] => {
+    if (tool.categories) {
+        try {
+            const parsed = JSON.parse(tool.categories);
+            return Array.isArray(parsed) ? parsed : ['Uncategorized'];
+        } catch (e) {
+            // If JSON parsing fails, return default
+            return ['Uncategorized'];
+        }
+    }
+    // No categories field, will rely on auto-categorization in display logic
+    return ['Uncategorized'];
 };
 
 // Blog interface - Updated to match actual Appwrite collection schema
@@ -134,24 +152,27 @@ export interface BlogComment {
     $updatedAt?: string;
 }
 
-// Tool interface for tools collection - Clean version
+// Tool interface for tools collection - Updated with actual database schema
 export interface Tool {
     $id?: string;
     name: string;
     description: string;
-    category: string;
+    categories?: string; // JSON string of category array (primary field)
     imageUrl?: string; // Tool logo/image URL
     link: string; // Website URL
-    user_id: string; // Who submitted (changed from submittedBy)
+    user_id: string; // Who submitted
     status: 'pending' | 'approved' | 'rejected'; // Approval status
-    views: number; // View count
-    rating: number; // Average rating
-    featured: boolean; // Is featured tool
-    tags?: string[]; // Tool tags
+    privacy?: 'public' | 'private'; // Visibility setting
+    logoBackgroundColor?: string; // Background color for logo/fallback
+    fallbackIcon?: string; // Fallback icon name
+    views?: number; // View count
+    rating?: number; // Average rating
+    featured?: boolean; // Is featured tool
+    tags?: string; // JSON string of tags array
     pricing?: 'free' | 'paid' | 'freemium'; // Pricing model
     $createdAt?: string;
     $updatedAt?: string;
-    // Legacy fields for backward compatibility - will be cleaned up later
+    // Legacy fields for backward compatibility
     reviews?: number;
     reviewCount?: number;
     icon?: string;
@@ -159,8 +180,6 @@ export interface Tool {
     cardColor?: string;
     websiteLink?: string;
     toolImage?: string;
-    logoBackgroundColor?: string;
-    fallbackIcon?: string;
     imageurl?: string;
     new?: boolean;
     computedImageUrl?: string;

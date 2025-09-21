@@ -26,6 +26,7 @@ const BlogCard = ({
   replyingTo,
   replyInputs,
   showAllComments,
+  colors,
   handleComment, 
   handleInputChange, 
   fetchBlogComments, 
@@ -46,6 +47,7 @@ const BlogCard = ({
   replyingTo: {[commentId: string]: boolean};
   replyInputs: {[commentId: string]: string};
   showAllComments: {[blogId: string]: boolean};
+  colors: any;
   handleComment: (blogId: string) => void;
   handleInputChange: (blogId: string, value: string) => void;
   fetchBlogComments: (blogId: string) => void;
@@ -59,20 +61,38 @@ const BlogCard = ({
   handleReplyToReply: (parentCommentId: string, replyToUserName: string) => void;
 }) => {
   return (
-    <article className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 hover:shadow-md transition-all duration-200">
+    <article 
+      className="rounded-xl border p-6 hover:shadow-md transition-all duration-200"
+      style={{
+        backgroundColor: colors.card,
+        borderColor: colors.border
+      }}
+    >
       {/* Header with dots menu */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
           {/* Title */}
           <Link href={`/blog/${blog.$id}`}>
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white line-clamp-2 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer mb-3">
+            <h2 
+              className="text-xl font-semibold line-clamp-2 transition-colors cursor-pointer mb-3"
+              style={{ 
+                color: colors.foreground,
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.color = colors.primary}
+              onMouseLeave={(e) => e.currentTarget.style.color = colors.foreground}
+            >
               {blog.title || 'Untitled Blog'}
             </h2>
           </Link>
         </div>
         
         {/* Three dots menu */}
-        <button className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1">
+        <button 
+          className="p-1 transition-colors"
+          style={{ color: colors.muted }}
+          onMouseEnter={(e) => e.currentTarget.style.color = colors.foreground}
+          onMouseLeave={(e) => e.currentTarget.style.color = colors.muted}
+        >
           <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
             <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
           </svg>
@@ -85,12 +105,21 @@ const BlogCard = ({
         <div className="flex-1">
           {/* Author and date */}
           <div className="flex items-center space-x-3 mb-3">
-            <div className="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center">
-              <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+            <div 
+              className="w-8 h-8 rounded-full flex items-center justify-center"
+              style={{ backgroundColor: colors.muted }}
+            >
+              <span 
+                className="text-xs font-medium"
+                style={{ color: colors.foreground }}
+              >
                 {blog.author_name?.charAt(0).toUpperCase() || 'A'}
               </span>
             </div>
-            <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
+            <div 
+              className="flex items-center space-x-2 text-sm"
+              style={{ color: colors.cardForeground }}
+            >
               <span className="font-medium">{blog.author_name || 'Anonymous'}</span>
               <span>•</span>
               <span>{formatDate(blog.$createdAt!)}</span>
@@ -98,7 +127,10 @@ const BlogCard = ({
           </div>
 
           {/* Blog excerpt */}
-          <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed mb-4 line-clamp-3">
+          <p 
+            className="text-sm leading-relaxed mb-4 line-clamp-3"
+            style={{ color: colors.cardForeground }}
+          >
             {blog.excerpt || blog.content?.substring(0, 200) + '...' || 'No content available'}
           </p>
 
@@ -110,7 +142,11 @@ const BlogCard = ({
                 .map((tag: string, index: number) => (
                   <span 
                     key={index}
-                    className="px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full text-xs font-medium"
+                    className="px-3 py-1 rounded-full text-xs font-medium"
+                    style={{
+                      backgroundColor: colors.muted,
+                      color: colors.foreground
+                    }}
                   >
                     {tag}
                   </span>
@@ -122,17 +158,28 @@ const BlogCard = ({
           <div className="flex items-center justify-between">
             {/* Left side - Stats */}
             <div className="flex items-center space-x-6">
-              <button className="flex items-center space-x-1 text-gray-500 dark:text-gray-400 hover:text-red-500">
+              <button 
+                className="flex items-center space-x-1 transition-colors hover:text-red-500"
+                style={{ color: colors.cardForeground }}
+              >
                 <FaHeart className="w-4 h-4" />
                 <span className="text-sm">{blog.likes || 0}</span>
               </button>
 
-              <button className="flex items-center space-x-1 text-gray-500 dark:text-gray-400 hover:text-blue-500">
+              <button 
+                className="flex items-center space-x-1 transition-colors"
+                style={{ color: colors.cardForeground }}
+                onMouseEnter={(e) => e.currentTarget.style.color = colors.accent}
+                onMouseLeave={(e) => e.currentTarget.style.color = colors.cardForeground}
+              >
                 <FaComment className="w-4 h-4" />
                 <span className="text-sm">{commentsData[blog.$id!]?.length || 0}</span>
               </button>
 
-              <button className="flex items-center space-x-1 text-gray-500 dark:text-gray-400 hover:text-green-500">
+              <button 
+                className="flex items-center space-x-1 transition-colors hover:text-green-500"
+                style={{ color: colors.cardForeground }}
+              >
                 <FaShare className="w-4 h-4" />
                 <span className="text-sm">Share</span>
               </button>
@@ -153,11 +200,20 @@ const BlogCard = ({
       </div>
 
       {/* Comments Section */}
-      <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700">
+      <div 
+        className="mt-6 pt-4 border-t"
+        style={{ borderColor: colors.border }}
+      >
         {/* Comment Input at the top */}
         <div className="flex items-center space-x-3 mb-6">
-          <div className="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center">
-            <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+          <div 
+            className="w-8 h-8 rounded-full flex items-center justify-center"
+            style={{ backgroundColor: colors.muted }}
+          >
+            <span 
+              className="text-xs font-medium"
+              style={{ color: colors.foreground }}
+            >
               {user?.name?.charAt(0).toUpperCase() || 'A'}
             </span>
           </div>
@@ -168,7 +224,12 @@ const BlogCard = ({
               value={commentInputs[blog.$id!] || ''}
               onChange={(e) => handleInputChange(blog.$id!, e.target.value)}
               disabled={loadingComments[blog.$id!]}
-              className="w-full px-4 py-2 pr-12 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
+              className="w-full px-4 py-2 pr-12 text-sm border rounded-full focus:outline-none focus:ring-2 focus:border-transparent disabled:opacity-50"
+              style={{
+                backgroundColor: colors.muted,
+                borderColor: colors.border,
+                color: colors.foreground
+              }}
             />
             <button 
               onClick={() => handleComment(blog.$id!)}
@@ -798,7 +859,10 @@ export default function BlogsPage() {
   };
 
   return (
-    <div className="h-screen bg-gray-50 dark:bg-gray-900 transition-all duration-300 flex flex-col">
+    <div 
+      className="h-screen transition-all duration-300 flex flex-col"
+      style={{ backgroundColor: colors.background }}
+    >
       <NavigationWrapper />
 
       {/* Main Content Container */}
@@ -808,15 +872,24 @@ export default function BlogsPage() {
         <div className="flex-shrink-0 max-w-6xl mx-auto w-full px-4 sm:px-6 lg:px-8 mb-6">
           <div className="space-y-4">
             {/* Simple Title */}
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+            <h1 
+              className="text-3xl font-bold"
+              style={{ color: colors.foreground }}
+            >
               Discover
             </h1>
-            <p className="text-gray-600 dark:text-gray-400 text-lg">
+            <p 
+              className="text-lg"
+              style={{ color: colors.muted }}
+            >
               Explore popular blogs that inspire, educate, and entertain.
             </p>
             
             {/* Navigation Tabs */}
-            <div className="flex space-x-8 border-b border-gray-200 dark:border-gray-700">
+            <div 
+              className="flex space-x-8 border-b"
+              style={{ borderColor: colors.border }}
+            >
               <button className="pb-4 border-b-2 border-gray-900 dark:border-white font-medium text-gray-900 dark:text-white">
                 Recommended
               </button>
@@ -893,6 +966,7 @@ export default function BlogsPage() {
                       replyingTo={replyingTo}
                       replyInputs={replyInputs}
                       showAllComments={showAllComments}
+                      colors={colors}
                       handleComment={handleComment}
                       handleInputChange={handleInputChange}
                       fetchBlogComments={fetchBlogComments}
@@ -916,7 +990,11 @@ export default function BlogsPage() {
                         fetchBlogs();
                       }}
                       disabled={loading}
-                      className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
+                      className="px-6 py-3 text-white rounded-lg transition-colors disabled:opacity-50"
+                      style={{ 
+                        backgroundColor: colors.accent,
+                        ':hover': { backgroundColor: colors.accent + 'dd' }
+                      }}
                     >
                       {loading ? 'Loading...' : 'Load More'}
                     </button>

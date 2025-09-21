@@ -14,6 +14,7 @@ interface User {
   lastName?: string;
   linkedinProfile?: string;
   githubProfile?: string;
+  social_links?: string | object;
   image?: string;
   isEmailVerified: boolean;
   usernameLastUpdatedAt?: string;

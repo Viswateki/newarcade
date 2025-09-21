@@ -681,6 +681,376 @@ class AuthService {
       };
     }
   }
+
+  // Update user profile
+  async updateProfile(userId: string, profileData: Partial<UserProfile>): Promise<{ 
+    success: boolean; 
+    message: string; 
+    user?: UserProfile;
+  }> {
+    try {
+      console.log('🔄 Updating user profile for:', userId);
+      
+      // Find the user document first to get the document ID
+      const userResponse = await databases.listDocuments(
+        this.databaseId,
+        this.userCollectionId,
+        [Query.equal('userId', userId)]
+      );
+
+      if (userResponse.documents.length === 0) {
+        return { 
+          success: false, 
+          message: 'User not found' 
+        };
+      }
+
+      const userDoc = userResponse.documents[0];
+      
+      // Prepare update data - only include non-null, defined values
+      const updateData: any = {};
+      
+      if (profileData.firstName !== undefined) updateData.firstName = profileData.firstName;
+      if (profileData.lastName !== undefined) updateData.lastName = profileData.lastName;
+      if (profileData.username !== undefined) {
+        // Check if username is already taken by another user
+        const usernameCheck = await databases.listDocuments(
+          this.databaseId,
+          this.userCollectionId,
+          [
+            Query.equal('username', profileData.username),
+            Query.notEqual('userId', userId)
+          ]
+        );
+        
+        if (usernameCheck.documents.length > 0) {
+          return { 
+            success: false, 
+            message: 'Username is already taken' 
+          };
+        }
+        
+        updateData.username = profileData.username;
+        updateData.usernameLastUpdatedAt = new Date().toISOString();
+      }
+      
+      if (profileData.linkedinProfile !== undefined || profileData.githubProfile !== undefined) {
+        // Handle social links - parse existing social_links or create new object
+        let socialLinks: any = {};
+        try {
+          if (userDoc.social_links) {
+            socialLinks = typeof userDoc.social_links === 'string' 
+              ? JSON.parse(userDoc.social_links) 
+              : userDoc.social_links;
+          }
+        } catch (e) {
+          socialLinks = {};
+        }
+        
+        if (profileData.linkedinProfile !== undefined) {
+          socialLinks.linkedin = profileData.linkedinProfile;
+        }
+        if (profileData.githubProfile !== undefined) {
+          socialLinks.github = profileData.githubProfile;
+        }
+        
+        updateData.social_links = JSON.stringify(socialLinks);
+      }
+
+      // Update the document
+      const updatedUser = await databases.updateDocument(
+        this.databaseId,
+        this.userCollectionId,
+        userDoc.$id,
+        updateData
+      );
+
+      console.log('✅ Profile updated successfully');
+
+      // Update local session if this is the current user
+      const currentUser = await this.getCurrentUser();
+      if (currentUser && currentUser.id === userId) {
+        const updatedSessionUser: AuthUser = {
+          ...currentUser,
+          username: updateData.username || currentUser.username,
+          firstName: updateData.firstName ?? currentUser.firstName,
+          lastName: updateData.lastName ?? currentUser.lastName,
+          linkedinProfile: profileData.linkedinProfile ?? currentUser.linkedinProfile,
+          githubProfile: profileData.githubProfile ?? currentUser.githubProfile,
+        };
+        this.storeUserSession(updatedSessionUser);
+      }
+
+      return { 
+        success: true, 
+        message: 'Profile updated successfully',
+        user: updatedUser as unknown as UserProfile
+      };
+
+    } catch (error) {
+      console.error('❌ Update profile error:', error);
+      return { 
+        success: false, 
+        message: 'Failed to update profile. Please try again.' 
+      };
+    }
+  }
+
+  // Change password
+  async changePassword(currentPassword: string, newPassword: string): Promise<{ 
+    success: boolean; 
+    message: string; 
+  }> {
+    try {
+      const currentUser = await this.getCurrentUser();
+      if (!currentUser) {
+        return { 
+          success: false, 
+          message: 'You must be logged in to change your password' 
+        };
+      }
+
+      console.log('🔐 Attempting to change password for:', currentUser.email);
+
+      // Verify current password by attempting login
+      const loginResult = await this.login({
+        email: currentUser.email,
+        password: currentPassword
+      });
+
+      if (!loginResult.success) {
+        return { 
+          success: false, 
+          message: 'Current password is incorrect' 
+        };
+      }
+
+      // Validate new password
+      if (!newPassword || newPassword.length < 8) {
+        return { 
+          success: false, 
+          message: 'New password must be at least 8 characters long' 
+        };
+      }
+
+      // Find the user document
+      const userResponse = await databases.listDocuments(
+        this.databaseId,
+        this.userCollectionId,
+        [Query.equal('userId', currentUser.id)]
+      );
+
+      if (userResponse.documents.length === 0) {
+        return { 
+          success: false, 
+          message: 'User not found' 
+        };
+      }
+
+      const userDoc = userResponse.documents[0];
+      
+      // Hash the new password (in a real app, you'd use proper password hashing)
+      // For this implementation, we'll store it as-is (NOT recommended for production)
+      const updateData = {
+        password: newPassword,
+        passwordChangedAt: new Date().toISOString()
+      };
+
+      // Update the password
+      await databases.updateDocument(
+        this.databaseId,
+        this.userCollectionId,
+        userDoc.$id,
+        updateData
+      );
+
+      console.log('✅ Password changed successfully');
+
+      return { 
+        success: true, 
+        message: 'Password changed successfully' 
+      };
+
+    } catch (error) {
+      console.error('❌ Change password error:', error);
+      return { 
+        success: false, 
+        message: 'Failed to change password. Please try again.' 
+      };
+    }
+  }
+
+  // Send verification code for email change
+  async sendEmailChangeVerification(currentPassword: string, newEmail: string): Promise<{ 
+    success: boolean; 
+    message: string; 
+    verificationCode?: string;
+  }> {
+    try {
+      const currentUser = await this.getCurrentUser();
+      if (!currentUser) {
+        return { 
+          success: false, 
+          message: 'You must be logged in to change your email' 
+        };
+      }
+
+      // Verify current password
+      const loginResult = await this.login({
+        email: currentUser.email,
+        password: currentPassword
+      });
+
+      if (!loginResult.success) {
+        return { 
+          success: false, 
+          message: 'Current password is incorrect' 
+        };
+      }
+
+      // Validate new email
+      const emailValidation = this.validateEmail(newEmail);
+      if (!emailValidation.isValid) {
+        return { 
+          success: false, 
+          message: 'Invalid email format' 
+        };
+      }
+
+      // Check if email is already in use
+      const existingUserResponse = await databases.listDocuments(
+        this.databaseId,
+        this.userCollectionId,
+        [Query.equal('email', emailValidation.sanitized)]
+      );
+
+      if (existingUserResponse.documents.length > 0) {
+        return { 
+          success: false, 
+          message: 'Email address is already in use' 
+        };
+      }
+
+      // Generate verification code
+      const verificationCode = generateVerificationCode();
+      const expiry = Date.now() + 10 * 60 * 1000; // 10 minutes
+
+      // Store verification code (in a real app, you'd send this via email)
+      verificationCodes[emailValidation.sanitized] = {
+        code: verificationCode,
+        expiry,
+        userName: currentUser.username || currentUser.name || 'User'
+      };
+
+      console.log('📧 Email change verification code generated:', verificationCode);
+
+      return { 
+        success: true, 
+        message: `Verification code sent to ${newEmail}`,
+        verificationCode // In production, don't return this - send via email instead
+      };
+
+    } catch (error) {
+      console.error('❌ Send email change verification error:', error);
+      return { 
+        success: false, 
+        message: 'Failed to send verification code. Please try again.' 
+      };
+    }
+  }
+
+  // Change email with verification
+  async changeEmail(newEmail: string, verificationCode: string): Promise<{ 
+    success: boolean; 
+    message: string; 
+  }> {
+    try {
+      const currentUser = await this.getCurrentUser();
+      if (!currentUser) {
+        return { 
+          success: false, 
+          message: 'You must be logged in to change your email' 
+        };
+      }
+
+      // Validate new email
+      const emailValidation = this.validateEmail(newEmail);
+      if (!emailValidation.isValid) {
+        return { 
+          success: false, 
+          message: 'Invalid email format' 
+        };
+      }
+
+      // Verify code
+      const storedCode = verificationCodes[emailValidation.sanitized];
+      if (!storedCode) {
+        return { 
+          success: false, 
+          message: 'Verification code not found. Please request a new code.' 
+        };
+      }
+
+      if (Date.now() > storedCode.expiry) {
+        delete verificationCodes[emailValidation.sanitized];
+        return { 
+          success: false, 
+          message: 'Verification code has expired. Please request a new code.' 
+        };
+      }
+
+      if (storedCode.code !== verificationCode) {
+        return { 
+          success: false, 
+          message: 'Invalid verification code' 
+        };
+      }
+
+      // Find the user document
+      const userResponse = await databases.listDocuments(
+        this.databaseId,
+        this.userCollectionId,
+        [Query.equal('userId', currentUser.id)]
+      );
+
+      if (userResponse.documents.length === 0) {
+        return { 
+          success: false, 
+          message: 'User not found' 
+        };
+      }
+
+      const userDoc = userResponse.documents[0];
+      
+      // Update the email
+      await databases.updateDocument(
+        this.databaseId,
+        this.userCollectionId,
+        userDoc.$id,
+        { email: emailValidation.sanitized }
+      );
+
+      // Clean up verification code
+      delete verificationCodes[emailValidation.sanitized];
+
+      // Clear current session since email changed
+      this.clearUserSession();
+
+      console.log('✅ Email changed successfully');
+
+      return { 
+        success: true, 
+        message: 'Email changed successfully! Please log in with your new email address.' 
+      };
+
+    } catch (error) {
+      console.error('❌ Change email error:', error);
+      return { 
+        success: false, 
+        message: 'Failed to change email. Please try again.' 
+      };
+    }
+  }
 }
 
 export const authService = new AuthService();

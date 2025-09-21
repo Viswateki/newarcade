@@ -5,6 +5,7 @@ import GradientText from '@/components/GradientText';
 import { useTheme } from '@/contexts/ThemeContext';
 import { toolsService } from '@/lib/toolsService';
 import { Tool, getToolImageUrlFromTool } from '@/lib/appwrite';
+import { FallbackIcon, type FallbackIconName } from '@/components/FallbackIconSystem';
 
 const BrowseToolsPage = () => {
   const { theme, colors } = useTheme();
@@ -109,82 +110,37 @@ const BrowseToolsPage = () => {
     );
   };
 
-  // Enhanced categorization logic - returns single primary category
-  const getPrimaryCategoryForTool = (tool: Tool): string => {
-    // Secondary categorization based on tags and descriptions
-    const toolName = tool.name?.toLowerCase() || '';
-    const toolDesc = tool.description?.toLowerCase() || '';
-    const toolTags = tool.tags?.map((tag: string) => tag.toLowerCase()) || [];
-    const allText = [toolName, toolDesc, ...toolTags].join(' ');
-    
-    // Priority order: most specific to least specific
-    
-    // Official/Popular bots (highest priority for well-known companies)
-    if (toolName.includes('google') || toolName.includes('openai') || toolName.includes('microsoft') ||
-        toolName.includes('github') || toolName.includes('notion') || toolName.includes('grammarly') ||
-        allText.includes('official') || tool.featured) {
-      return 'Official bots';
+  // Get categories for tool - returns array of categories from database
+  const getCategoriesForTool = (tool: Tool): string[] => {
+    // Use categories from the database if available
+    if (tool.categories) {
+      try {
+        const parsed = JSON.parse(tool.categories);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      } catch (e) {
+        console.warn('Failed to parse categories for tool:', tool.name, e);
+      }
     }
     
-    // Image generation bots
-    if (allText.includes('image') || allText.includes('photo') || allText.includes('art') || 
-        allText.includes('dall-e') || allText.includes('midjourney') || allText.includes('generate') ||
-        allText.includes('visual') || allText.includes('picture')) {
-      return 'Image generation bots';
-    }
-    
-    // Video generation bots
-    if (allText.includes('video') || allText.includes('film') || allText.includes('movie') ||
-        allText.includes('animation') || allText.includes('clip') || allText.includes('editing')) {
-      return 'Video generation bots';
-    }
-    
-    // Audio generation bots
-    if (allText.includes('audio') || allText.includes('music') || allText.includes('sound') ||
-        allText.includes('voice') || allText.includes('song') || allText.includes('podcast')) {
-      return 'Audio generation bots';
-    }
-    
-    // Writing/Content bots
-    if (allText.includes('writing') || allText.includes('content') || allText.includes('copy') ||
-        allText.includes('text') || allText.includes('article') || allText.includes('blog') ||
-        allText.includes('grammar') || allText.includes('editing')) {
-      return 'Writing bots';
-    }
-    
-    // Search/Research bots
-    if (allText.includes('search') || allText.includes('research') || allText.includes('data') ||
-        allText.includes('analytics') || allText.includes('insights') || allText.includes('information') ||
-        allText.includes('knowledge') || allText.includes('notes')) {
-      return 'Search bots';
-    }
-    
-    // Chat/Conversational bots
-    if (allText.includes('chat') || allText.includes('conversation') || allText.includes('assistant') ||
-        allText.includes('companion') || allText.includes('talk') || allText.includes('dialogue')) {
-      return 'Chat bots';
-    }
-    
-    // Productivity bots
-    if (allText.includes('productivity') || allText.includes('work') || allText.includes('business') ||
-        allText.includes('meeting') || allText.includes('schedule') || allText.includes('organization')) {
-      return 'Productivity bots';
-    }
-    
-    // Default to original category or uncategorized
-    return tool.category || 'Uncategorized';
+    // Fallback to 'Uncategorized' if no valid categories
+    return ['Uncategorized'];
   };
 
   const groupedTools = tools.reduce((acc, tool) => {
-    const primaryCategory = getPrimaryCategoryForTool(tool);
+    const toolCategories = getCategoriesForTool(tool);
     
-    if (!acc[primaryCategory]) {
-      acc[primaryCategory] = [];
-    }
-    // Only add if not already in this category (avoid duplicates)
-    if (!acc[primaryCategory].find(t => t.$id === tool.$id)) {
-      acc[primaryCategory].push(tool);
-    }
+    // Add tool to each of its categories
+    toolCategories.forEach(category => {
+      if (!acc[category]) {
+        acc[category] = [];
+      }
+      // Only add if not already in this category (avoid duplicates)
+      if (!acc[category].find(t => t.$id === tool.$id)) {
+        acc[category].push(tool);
+      }
+    });
     
     return acc;
   }, {} as Record<string, Tool[]>);
@@ -389,17 +345,16 @@ const BrowseToolsPage = () => {
           </header>
 
           <main>
-            {/* Define category order for better UX */}
+            {/* Define category order based on actual database categories */}
             {(() => {
               const categoryOrder = [
-                'Official bots',
-                'Chat bots', 
-                'Image generation bots',
-                'Video generation bots',
-                'Audio generation bots',
-                'Writing bots',
-                'Search bots',
-                'Productivity bots',
+                // Most common/important categories first
+                'AI Chatbots',
+                'Coding Assistants', 
+                'Content Creation',
+                'Data Analysis',
+                'Photo Editing',
+                'Business Intelligence',
                 'Uncategorized'
               ];
               
@@ -561,24 +516,23 @@ const ToolSection: React.FC<ToolSectionProps> = ({ title, tools, onToolClick, is
           scrollAmount = 200;
           break;
         case 'Home':
-          scrollRef.current.scrollTo({ left: 0, behavior: 'smooth' });
+          scrollRef.current.scrollTo({ left: 0 });
           e.preventDefault();
-          setTimeout(checkScrollPosition, 300);
+          setTimeout(checkScrollPosition, 100);
           return;
         case 'End':
-          scrollRef.current.scrollTo({ left: scrollRef.current.scrollWidth, behavior: 'smooth' });
+          scrollRef.current.scrollTo({ left: scrollRef.current.scrollWidth });
           e.preventDefault();
-          setTimeout(checkScrollPosition, 300);
+          setTimeout(checkScrollPosition, 100);
           return;
       }
       
       if (scrollAmount !== 0) {
         e.preventDefault();
         scrollRef.current.scrollTo({
-          left: scrollRef.current.scrollLeft + scrollAmount,
-          behavior: 'smooth'
+          left: scrollRef.current.scrollLeft + scrollAmount
         });
-        setTimeout(checkScrollPosition, 300);
+        setTimeout(checkScrollPosition, 100);
       }
     }
   };
@@ -594,51 +548,17 @@ const ToolSection: React.FC<ToolSectionProps> = ({ title, tools, onToolClick, is
           >
             {title}
           </GradientText>
-          {/* Collapse button */}
-          {onToggleCollapse && (
-            <button
-              onClick={onToggleCollapse}
-              className="p-1 rounded-full transition-all duration-200 hover:bg-opacity-20"
-              style={{ backgroundColor: 'transparent', color: colors.muted }}
-              aria-label={isCollapsed ? 'Expand category' : 'Collapse category'}
-            >
-              <svg 
-                xmlns="http://www.w3.org/2000/svg" 
-                fill="none" 
-                viewBox="0 0 24 24" 
-                strokeWidth={2} 
-                stroke="currentColor" 
-                className={`w-5 h-5 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`}
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-              </svg>
-            </button>
-          )}
         </div>
-        <button
+        <span
           onClick={() => setIsExpanded(!isExpanded)}
-          className="flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+          className="text-sm font-semibold cursor-pointer"
           style={{
-            backgroundColor: theme === 'dark' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(59, 130, 246, 0.05)',
-            color: '#3B82F6',
-            border: '1px solid rgba(59, 130, 246, 0.2)'
+            color: colors.foreground
           }}
           aria-label={isExpanded ? 'Collapse section' : 'Expand to grid view'}
         >
-          <span className="text-sm font-semibold">
-            {isExpanded ? 'Show less' : 'See all'}
-          </span>
-          <svg 
-            xmlns="http://www.w3.org/2000/svg" 
-            fill="none" 
-            viewBox="0 0 24 24" 
-            strokeWidth={2} 
-            stroke="currentColor" 
-            className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-          </svg>
-        </button>
+          {isExpanded ? 'Show less' : 'See all'}
+        </span>
       </div>
       
       {/* Collapsible content */}
@@ -646,17 +566,17 @@ const ToolSection: React.FC<ToolSectionProps> = ({ title, tools, onToolClick, is
         <>
           {/* Expanded Grid View */}
           {isExpanded ? (
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4 py-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-2 py-4" style={{ minHeight: '120px' }}>
               {tools.map((tool: Tool) => (
                 <ToolCard key={tool.$id} tool={tool} onToolClick={onToolClick} />
               ))}
             </div>
           ) : (
             /* Horizontal Scroll View */
-            <div className="relative">
+            <div className="relative" style={{ minHeight: '120px' }}>
               <div
                 ref={scrollRef}
-                className="flex space-x-6 overflow-x-auto py-4 tool-scroll-container scrollbar-hide focus:outline-none scroll-snap-x"
+                className="flex space-x-3 overflow-x-auto py-4 tool-scroll-container scrollbar-hide focus:outline-none scroll-snap-x"
                 onWheel={handleWheel}
                 onTouchStart={handleTouchStart}
                 onTouchEnd={handleTouchEnd}
@@ -708,32 +628,14 @@ const ToolSection: React.FC<ToolSectionProps> = ({ title, tools, onToolClick, is
                 .scroll-snap-x > * {
                   scroll-snap-align: start;
                 }
-                .fog-effect::before,
-                .fog-effect::after {
-                  content: '';
-                  position: absolute;
-                  top: 0;
-                  bottom: 0;
-                  width: 80px;
-                  pointer-events: none;
-                  z-index: 10;
-                }
-                .fog-effect::before {
-                  left: 0;
-                  background: linear-gradient(to right, ${colors.background} 0%, ${colors.background}80 50%, transparent 100%);
-                }
-                .fog-effect::after {
-                  right: 0;
-                  background: linear-gradient(to left, ${colors.background} 0%, ${colors.background}80 50%, transparent 100%);
-                }
               `}</style>
 
-              {/* Scroll Arrows with the fog container */}
-              <div className="fog-effect absolute inset-y-0 w-full opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+              {/* Scroll Arrows */}
+              <div className="absolute inset-y-0 w-full opacity-100">
                 {canScrollLeft && (
                   <button
                     onClick={() => handleScroll('left')}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 backdrop-blur-lg p-3 rounded-full transition-all duration-300 hover:scale-110 z-30 shadow-xl"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 backdrop-blur-lg p-3 rounded-full z-30 shadow-xl"
                     style={{
                       backgroundColor: theme === 'dark' ? 'rgba(17, 24, 39, 0.8)' : 'rgba(255, 255, 255, 0.9)',
                       color: colors.foreground,
@@ -749,7 +651,7 @@ const ToolSection: React.FC<ToolSectionProps> = ({ title, tools, onToolClick, is
                 {canScrollRight && (
                   <button
                     onClick={() => handleScroll('right')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 backdrop-blur-lg p-3 rounded-full transition-all duration-300 hover:scale-110 z-30 shadow-xl"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 backdrop-blur-lg p-3 rounded-full z-30 shadow-xl"
                     style={{
                       backgroundColor: theme === 'dark' ? 'rgba(17, 24, 39, 0.8)' : 'rgba(255, 255, 255, 0.9)',
                       color: colors.foreground,
@@ -793,33 +695,15 @@ const ToolCard: React.FC<ToolCardProps> = ({ tool, onToolClick }) => {
     });
   }, [tool]);
 
-  // Determine the best logo URL to use
-  const getLogoUrl = () => {
-    // First, try to use the computed image URL from the service
-    if (tool.computedImageUrl) {
-      console.log('Using computed image URL for', tool.name, tool.computedImageUrl);
-      return tool.computedImageUrl;
-    }
-    
-    // Fallback to the original logic for backward compatibility
-    const logoUrl = tool.logo || 
-                   tool.imageurl || 
-                   tool.toolImage || 
-                   tool.fallbackIcon;
-    
-    if (logoUrl) {
-      // Use the getToolImageUrl helper function
-      const computedUrl = getToolImageUrlFromTool(tool);
-      console.log('Using fallback computed URL for', tool.name, computedUrl);
-      return computedUrl;
-    }
-    
-    // Final fallback to placeholder with first letter
-    console.log('Using placeholder for', tool.name);
-    return `https://placehold.co/100x100/1C64F2/ffffff?text=${tool.name?.charAt(0) || 'T'}`;
-  };
-
-  const logoUrl = getLogoUrl();
+  // Simple logo check - does this tool have a logo or not?
+  const hasLogo = !!(tool.imageUrl || tool.logo || tool.imageurl || tool.toolImage || tool.computedImageUrl);
+  const logoUrl = hasLogo ? (tool.computedImageUrl || tool.imageUrl || getToolImageUrlFromTool(tool)) : null;
+  
+  // Debug what we're showing
+  console.log(`${tool.name}: hasLogo=${hasLogo}, logoUrl=${logoUrl}, fallbackIcon=${tool.fallbackIcon}, bgColor=${tool.logoBackgroundColor}`);
+  
+  // Force background colors - no blue defaults!
+  const backgroundColorToUse = hasLogo ? 'white' : (tool.logoBackgroundColor || '#10B981'); // Green as last resort, not blue
   
   const handleClick = (e: React.MouseEvent) => {
     console.log('ToolCard clicked:', tool.name); // Debug log
@@ -851,7 +735,7 @@ const ToolCard: React.FC<ToolCardProps> = ({ tool, onToolClick }) => {
     <div
       onClick={handleClick}
       onDoubleClick={handleDirectClick} // Backup for double-click
-      className="flex-shrink-0 w-28 md:w-32 flex flex-col items-center text-center cursor-pointer group transition-all duration-300 hover:scale-110 hover:rotate-1 scroll-snap-align-start relative z-10"
+      className="flex-shrink-0 w-28 md:w-32 flex flex-col items-center text-center cursor-pointer scroll-snap-align-start relative z-10"
       style={{ 
         scrollSnapAlign: 'start',
         pointerEvents: 'auto' // Ensure clicks are enabled
@@ -868,44 +752,78 @@ const ToolCard: React.FC<ToolCardProps> = ({ tool, onToolClick }) => {
       }}
     >
       <div 
-        className="w-20 h-20 md:w-24 md:h-24 overflow-hidden p-0.5 transition-all duration-300 group-hover:shadow-xl shadow-md relative"
+        className="w-16 h-16 md:w-20 md:h-20 overflow-hidden relative"
         style={{
-          borderRadius: '32px',
+          borderRadius: '24px',
           transform: 'rotate(-2deg)',
-          border: `1px solid ${theme === 'dark' ? 'rgba(59, 130, 246, 0.3)' : 'rgba(59, 130, 246, 0.2)'}`,
-          boxShadow: theme === 'dark' 
-            ? '0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(59, 130, 246, 0.1)'
-            : '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(59, 130, 246, 0.1)'
+          border: 'none'
         }}
       >
-        <img
-          src={logoUrl}
-          alt={`${tool.name} icon`}
-          className="w-full h-full object-cover relative z-10 cursor-pointer"
+        <div
+          className="w-full h-full flex items-center justify-center relative z-10 cursor-pointer"
           style={{
-            borderRadius: '28px',
+            borderRadius: '24px',
             transform: 'rotate(2deg)',
-            objectFit: tool.logo || tool.imageurl || tool.toolImage ? 'contain' : 'cover', // Use contain for actual logos, cover for placeholders
-            padding: tool.logo || tool.imageurl || tool.toolImage ? '4px' : '0', // Add padding for real logos
+            backgroundColor: backgroundColorToUse,
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            overflow: 'hidden'
           }}
-          onClick={handleDirectClick} // Additional click handler on image
-          onError={(e) => {
-            // Improved fallback logic
-            const target = e.target as HTMLImageElement;
-            console.log('Image failed to load for', tool.name, 'trying fallback');
-            
-            // Try different fallback options
-            if (tool.fallbackIcon && target.src !== tool.fallbackIcon) {
-              target.src = tool.fallbackIcon;
-            } else {
-              // Final fallback to placeholder
-              target.src = "https://placehold.co/100x100/1C64F2/ffffff?text=" + (tool.name?.charAt(0) || 'T');
-            }
-          }}
-        />
+          onClick={handleDirectClick}
+        >
+          {hasLogo && logoUrl ? (
+            <img
+              src={logoUrl}
+              alt={`${tool.name} icon`}
+              className="w-full h-full"
+              style={{
+                borderRadius: '24px',
+                border: 'none',
+                objectFit: 'contain',
+                objectPosition: 'center',
+                padding: '1px'
+              }}
+              onError={(e) => {
+                console.log('Image failed to load for', tool.name);
+                // Hide the image and show fallback instead
+                (e.target as HTMLImageElement).style.display = 'none';
+                const fallbackDiv = (e.target as HTMLImageElement).nextElementSibling as HTMLElement;
+                if (fallbackDiv) fallbackDiv.style.display = 'flex';
+              }}
+            />
+          ) : null}
+          
+          <div 
+            className="flex items-center justify-center w-full h-full"
+            style={{ 
+              display: hasLogo ? 'none' : 'flex',
+              borderRadius: '24px',
+              border: 'none',
+              overflow: 'hidden'
+            }}
+          >
+            {tool.fallbackIcon ? (
+              <FallbackIcon 
+                iconName={tool.fallbackIcon as FallbackIconName}
+                size={32}
+                backgroundColor="transparent"
+                textColor="white"
+              />
+            ) : (
+              <div>
+                <span 
+                  className="text-white font-bold"
+                  style={{ fontSize: '1.5rem' }}
+                >
+                  {tool.name?.charAt(0)?.toUpperCase() || '🔧'}
+                </span>
+                <div style={{ fontSize: '8px', color: 'white' }}>No icon</div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
       <p 
-        className="text-xs md:text-sm mt-3 font-medium transition-all duration-300 group-hover:opacity-80 group-focus:ring-2 group-focus:ring-blue-500/50 rounded cursor-pointer"
+        className="text-xs md:text-sm mt-3 font-medium cursor-pointer"
         style={{ color: colors.foreground }}
         onClick={handleDirectClick} // Make the text clickable too
       >

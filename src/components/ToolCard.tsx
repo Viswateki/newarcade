@@ -1,5 +1,6 @@
-import React from 'react';
-import { Tool, getToolImageUrlFromTool } from '@/lib/appwrite';
+import React, { useState } from 'react';
+import { Tool, getToolImageUrlFromTool, getToolCategories } from '@/lib/appwrite';
+import { toolsStorageService } from '@/lib/toolsStorageService';
 import { 
   FiStar, 
   FiExternalLink, 
@@ -15,6 +16,95 @@ interface ToolCardProps {
 }
 
 const ToolCard: React.FC<ToolCardProps> = ({ tool, viewMode, onToolClick }) => {
+  const [imageError, setImageError] = useState(false);
+  
+  // Get primary category for display
+  const getPrimaryCategory = (tool: Tool): string => {
+    const categories = getToolCategories(tool);
+    if (categories.length > 0 && categories[0] !== 'Uncategorized') {
+      return categories[0];
+    }
+    
+    // Auto-categorization fallback (simplified version)
+    const toolName = tool.name?.toLowerCase() || '';
+    const toolDesc = tool.description?.toLowerCase() || '';
+    const allText = [toolName, toolDesc].join(' ');
+    
+    if (toolName.includes('chatgpt') || toolName.includes('openai') || toolName.includes('google') || toolName.includes('microsoft') || tool.featured) {
+      return 'Official bots';
+    }
+    if (allText.includes('image') || allText.includes('photo') || allText.includes('art')) {
+      return 'Image generation bots';
+    }
+    if (allText.includes('video') || allText.includes('film')) {
+      return 'Video generation bots';
+    }
+    if (allText.includes('audio') || allText.includes('music')) {
+      return 'Audio generation bots';
+    }
+    if (allText.includes('writing') || allText.includes('content')) {
+      return 'Writing bots';
+    }
+    if (allText.includes('search') || allText.includes('research')) {
+      return 'Search bots';
+    }
+    if (allText.includes('chat') || allText.includes('conversation')) {
+      return 'Chat bots';
+    }
+    if (allText.includes('productivity') || allText.includes('work')) {
+      return 'Productivity bots';
+    }
+    
+    return 'AI Tools';
+  };
+  
+  const primaryCategory = getPrimaryCategory(tool);
+  
+  // Get the best available image URL, preferring computedImageUrl if available
+  const getImageUrl = () => {
+    if (tool.computedImageUrl) {
+      return tool.computedImageUrl;
+    }
+    return getToolImageUrlFromTool(tool);
+  };
+
+  // Handle image error with fallback
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    setImageError(true);
+    const target = e.target as HTMLImageElement;
+    target.style.display = 'none';
+  };
+
+  // Render image or fallback icon
+  const renderImage = (size: 'small' | 'medium' = 'medium') => {
+    const sizeClasses = size === 'small' ? 'w-16 h-16' : 'w-14 h-14';
+    const imageUrl = getImageUrl();
+    
+    return (
+      <div className={`${sizeClasses} rounded-xl flex items-center justify-center overflow-hidden`}>
+        {!imageError && imageUrl && imageUrl !== '' ? (
+          <img 
+            src={imageUrl}
+            alt={`${tool.name} logo`}
+            className="w-full h-full object-contain"
+            onError={handleImageError}
+            loading="lazy"
+          />
+        ) : (
+          <div 
+            className="flex items-center justify-center w-full h-full text-white font-bold"
+            style={{
+              backgroundColor: tool.logoBackgroundColor || '#3B82F6'
+            }}
+          >
+            <span className={`${size === 'small' ? 'text-xl' : 'text-2xl'}`}>
+              {tool.fallbackIcon || tool.name?.charAt(0)?.toUpperCase() || '🔧'}
+            </span>
+          </div>
+        )}
+      </div>
+    );
+  };
   if (viewMode === 'list') {
     return (
       <div
@@ -25,23 +115,7 @@ const ToolCard: React.FC<ToolCardProps> = ({ tool, viewMode, onToolClick }) => {
           <div className="flex items-center gap-6">
             {/* Tool Logo */}
             <div className="flex-shrink-0">
-              <div className="w-16 h-16 rounded-xl flex items-center justify-center overflow-hidden">
-                {(tool.logo || tool.imageurl || tool.toolImage) ? (
-                  <img 
-                    src={getToolImageUrlFromTool(tool)}
-                    alt={`${tool.name} logo`}
-                    className="w-full h-full object-contain"
-                    onError={(e) => {
-                      // Fallback to text icon if image fails to load
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = 'none';
-                      target.parentElement!.innerHTML = `<span class="text-2xl">${tool.fallbackIcon || '🔧'}</span>`;
-                    }}
-                  />
-                ) : (
-                  <span className="text-2xl">{tool.fallbackIcon || '🔧'}</span>
-                )}
-              </div>
+              {renderImage('small')}
             </div>
 
             {/* Tool Info */}
@@ -60,7 +134,7 @@ const ToolCard: React.FC<ToolCardProps> = ({ tool, viewMode, onToolClick }) => {
                   </div>
                   <div className="flex items-center gap-2 mb-2">
                     <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-sm font-medium rounded">
-                      {tool.category}
+                      {primaryCategory}
                     </span>
                     <span className="text-gray-500 dark:text-gray-400 text-sm">+{tool.tags?.length || 0}</span>
                   </div>
@@ -114,23 +188,7 @@ const ToolCard: React.FC<ToolCardProps> = ({ tool, viewMode, onToolClick }) => {
       <div className="p-6">
         {/* Header with logo and badges */}
         <div className="flex items-start justify-between mb-4">
-          <div className="w-14 h-14 rounded-xl flex items-center justify-center overflow-hidden">
-            {(tool.logo || tool.imageurl || tool.toolImage) ? (
-              <img 
-                src={getToolImageUrlFromTool(tool)}
-                alt={`${tool.name} logo`}
-                className="w-full h-full object-contain"
-                onError={(e) => {
-                  // Fallback to text icon if image fails to load
-                  const target = e.target as HTMLImageElement;
-                  target.style.display = 'none';
-                  target.parentElement!.innerHTML = `<span class="text-2xl">${tool.fallbackIcon || '🔧'}</span>`;
-                }}
-              />
-            ) : (
-              <span className="text-2xl">{tool.fallbackIcon || '🔧'}</span>
-            )}
-          </div>
+          {renderImage('medium')}
           {tool.featured && (
             <span className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs font-medium rounded">
               NEW
@@ -145,7 +203,7 @@ const ToolCard: React.FC<ToolCardProps> = ({ tool, viewMode, onToolClick }) => {
           </h3>
           <div className="flex items-center gap-2">
             <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-sm font-medium rounded">
-              {tool.category}
+              {primaryCategory}
             </span>
             <span className="text-gray-500 dark:text-gray-400 text-sm">+{tool.tags?.length || 0}</span>
           </div>
