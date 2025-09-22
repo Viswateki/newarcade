@@ -6,6 +6,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
+import { FiEye, FiEyeOff } from 'react-icons/fi';
 
 const client = new Client()
   .setEndpoint(process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT!)
@@ -73,6 +74,8 @@ function SignupContent() {
   const [username, setUsername] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showEmailSignup, setShowEmailSignup] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { colors, theme } = useTheme();
   const { signup, user, loading } = useAuth();
   const router = useRouter();
@@ -327,21 +330,34 @@ function SignupContent() {
                 >
                   Password *
                 </label>
-                <input
-                  id="password"
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-opacity-50 focus:border-opacity-50 transition-all duration-200 outline-none text-sm"
-                  style={{ 
-                    backgroundColor: colors.background, 
-                    borderColor: colors.border,
-                    color: colors.foreground,
-                    '--tw-ring-color': colors.accent
-                  } as React.CSSProperties}
-                  placeholder="Create a strong password"
-                />
+                <div className="relative">
+                  <input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full px-3 py-2.5 pr-10 border rounded-lg focus:ring-2 focus:ring-opacity-50 focus:border-opacity-50 transition-all duration-200 outline-none text-sm"
+                    style={{ 
+                      backgroundColor: colors.background, 
+                      borderColor: colors.border,
+                      color: colors.foreground,
+                      '--tw-ring-color': colors.accent
+                    } as React.CSSProperties}
+                    placeholder="Create a strong password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 flex items-center pr-3 hover:opacity-70 transition-opacity"
+                  >
+                    {showPassword ? (
+                      <FiEyeOff className="w-4 h-4" style={{ color: colors.cardForeground }} />
+                    ) : (
+                      <FiEye className="w-4 h-4" style={{ color: colors.cardForeground }} />
+                    )}
+                  </button>
+                </div>
               </div>
 
               <div>
@@ -352,23 +368,36 @@ function SignupContent() {
                 >
                   Confirm Password *
                 </label>
-                <input
-                  id="confirmPassword"
-                  type="password"
-                  required
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className={`w-full px-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-opacity-50 focus:border-opacity-50 transition-all duration-200 outline-none text-sm ${
-                    confirmPassword && password !== confirmPassword ? 'border-red-500' : ''
-                  }`}
-                  style={{ 
-                    backgroundColor: colors.background, 
-                    borderColor: confirmPassword && password !== confirmPassword ? '#ef4444' : colors.border,
-                    color: colors.foreground,
-                    '--tw-ring-color': colors.accent
-                  } as React.CSSProperties}
-                  placeholder="Confirm your password"
-                />
+                <div className="relative">
+                  <input
+                    id="confirmPassword"
+                    type={showConfirmPassword ? "text" : "password"}
+                    required
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className={`w-full px-3 py-2.5 pr-10 border rounded-lg focus:ring-2 focus:ring-opacity-50 focus:border-opacity-50 transition-all duration-200 outline-none text-sm ${
+                      confirmPassword && password !== confirmPassword ? 'border-red-500' : ''
+                    }`}
+                    style={{ 
+                      backgroundColor: colors.background, 
+                      borderColor: confirmPassword && password !== confirmPassword ? '#ef4444' : colors.border,
+                      color: colors.foreground,
+                      '--tw-ring-color': colors.accent
+                    } as React.CSSProperties}
+                    placeholder="Confirm your password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute inset-y-0 right-0 flex items-center pr-3 hover:opacity-70 transition-opacity"
+                  >
+                    {showConfirmPassword ? (
+                      <FiEyeOff className="w-4 h-4" style={{ color: colors.cardForeground }} />
+                    ) : (
+                      <FiEye className="w-4 h-4" style={{ color: colors.cardForeground }} />
+                    )}
+                  </button>
+                </div>
                 {confirmPassword && password !== confirmPassword && (
                   <p className="text-red-500 text-xs mt-1">Passwords do not match</p>
                 )}

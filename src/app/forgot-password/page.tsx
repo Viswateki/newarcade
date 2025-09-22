@@ -74,53 +74,47 @@ export default function ForgotPassword() {
 
   return (
     <div 
-      className="min-h-screen flex items-center justify-center px-4 py-8"
+      className="min-h-screen flex items-center justify-center px-4 py-16 pt-24"
       style={{ backgroundColor: colors.background }}
     >
       <div className="w-full max-w-md">
         {/* Header */}
-        <div className="text-center mb-8">
-          {/* Logo */}
-          <div className="mb-6">
-            <Link href="/" className="inline-flex items-center space-x-2 hover:opacity-80 transition-opacity">
-              <span className="text-3xl font-bold">
-                <span style={{ color: "#00bcd4" }}>ai</span>
-                <span style={{ color: colors.foreground }}>arcade</span>
-              </span>
-            </Link>
-          </div>
-          
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold mb-2" style={{ color: colors.foreground }}>
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-bold mb-1" style={{ color: colors.foreground }}>
               Forgot Password?
             </h1>
             <p className="text-sm" style={{ color: colors.cardForeground, opacity: 0.7 }}>
               Enter your email address and we'll send you a verification code to reset your password.
             </p>
           </div>
-          
-          <Link 
-            href="/login" 
-            className="text-sm hover:underline transition-colors duration-200 inline-flex items-center"
-            style={{ color: colors.accent }}
-          >
-            ← Back to Sign In
-          </Link>
+          <div className="flex-shrink-0">
+            <Link 
+              href="/login" 
+              className="text-xs hover:underline transition-colors duration-200 whitespace-nowrap"
+              style={{ color: colors.accent }}
+            >
+              Sign In
+            </Link>
+          </div>
         </div>
 
         {/* Main Form Container */}
         <div 
-          className="p-8 rounded-xl border"
+          className="p-6 rounded-lg border shadow-lg"
           style={{ 
             backgroundColor: colors.card,
             borderColor: colors.border,
+            boxShadow: theme === 'dark' 
+              ? '0 20px 40px -12px rgba(0, 0, 0, 0.8)' 
+              : '0 20px 40px -12px rgba(0, 0, 0, 0.15)'
           }}
         >
           {error && (
             <div 
-              className="border text-sm px-4 py-3 rounded-lg mb-6"
+              className="border text-sm px-4 py-2.5 rounded-lg mb-4"
               style={{
-                backgroundColor: theme === 'dark' ? 'rgba(127, 29, 29, 0.3)' : 'rgba(254, 242, 242, 0.8)',
+                backgroundColor: theme === 'dark' ? '#7f1d1d' : '#fef2f2',
                 borderColor: theme === 'dark' ? '#dc2626' : '#fecaca',
                 color: theme === 'dark' ? '#fca5a5' : '#dc2626'
               }}
@@ -131,22 +125,22 @@ export default function ForgotPassword() {
 
           {message && (
             <div 
-              className="border text-sm px-4 py-3 rounded-lg mb-6"
+              className="border text-sm px-4 py-2.5 rounded-lg mb-4"
               style={{
-                backgroundColor: theme === 'dark' ? 'rgba(20, 83, 45, 0.3)' : 'rgba(240, 253, 244, 0.8)',
-                borderColor: theme === 'dark' ? '#16a34a' : '#bbf7d0',
-                color: theme === 'dark' ? '#86efac' : '#15803d'
+                backgroundColor: theme === 'dark' ? '#064e3b' : '#f0fdf4',
+                borderColor: theme === 'dark' ? '#059669' : '#bbf7d0',
+                color: theme === 'dark' ? '#6ee7b7' : '#059669'
               }}
             >
               {message}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label 
                 htmlFor="email" 
-                className="block text-sm font-medium mb-2"
+                className="block text-sm font-medium mb-1.5"
                 style={{ color: colors.cardForeground }}
               >
                 Email Address
@@ -156,7 +150,7 @@ export default function ForgotPassword() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-opacity-50 focus:border-opacity-50 transition-all duration-200 outline-none"
+                className="w-full px-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-opacity-50 focus:border-opacity-50 transition-all duration-200 outline-none text-sm"
                 style={{ 
                   backgroundColor: colors.background, 
                   borderColor: colors.border,
@@ -171,7 +165,7 @@ export default function ForgotPassword() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full font-medium py-3 px-4 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full font-medium py-2.5 px-4 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed mt-5"
               style={{ 
                 backgroundColor: colors.accent, 
                 color: 'white' 
@@ -179,7 +173,7 @@ export default function ForgotPassword() {
             >
               {isLoading ? (
                 <div className="flex items-center justify-center">
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                   Sending Reset Code...
                 </div>
               ) : (
@@ -191,7 +185,7 @@ export default function ForgotPassword() {
               <button
                 type="button"
                 onClick={handleProceedToReset}
-                className="w-full font-medium py-3 px-4 rounded-lg transition-all duration-200 mt-3 border"
+                className="w-full font-medium py-2.5 px-4 rounded-lg transition-all duration-200 border"
                 style={{ 
                   backgroundColor: 'transparent',
                   borderColor: colors.accent,
@@ -203,11 +197,17 @@ export default function ForgotPassword() {
             )}
           </form>
           
-          {/* Additional help text */}
-          <div className="mt-6 pt-4 border-t text-center" style={{ borderColor: colors.border }}>
-            <p className="text-xs" style={{ color: colors.cardForeground, opacity: 0.6 }}>
-              Don't have an account? <Link href="/signup" className="hover:underline" style={{ color: colors.accent }}>Sign up here</Link>
-            </p>
+          <div className="mt-6 text-center">
+            <span className="text-sm" style={{ color: colors.cardForeground, opacity: 0.7 }}>
+              Don't have an account?{' '}
+              <Link 
+                href="/signup" 
+                className="hover:underline transition-colors duration-200" 
+                style={{ color: colors.accent }}
+              >
+                Sign up here
+              </Link>
+            </span>
           </div>
         </div>
       </div>

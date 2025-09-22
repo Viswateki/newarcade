@@ -171,16 +171,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signup = async (email: string, password: string, username: string, linkedinProfile?: string, githubProfile?: string) => {
     try {
-      const result = await authService.register({ 
-        email, 
-        password, 
-        username, 
-        linkedinProfile, 
-        githubProfile 
+      // Use the API route instead of calling authService directly
+      // This ensures the verification email is sent
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          username,
+          linkedinProfile: linkedinProfile || '',
+          githubProfile: githubProfile || '',
+        }),
       });
-      if (!result.success) {
-        throw new Error(result.message);
+
+      let data;
+      try {
+        data = await response.json();
+      } catch (jsonError) {
+        console.error('Failed to parse JSON response:', jsonError);
+        throw new Error('Server returned invalid response');
       }
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || 'Signup failed');
+      }
+
       // Don't set user here since they need to verify email first
     } catch (error) {
       throw error;

@@ -4,6 +4,8 @@ import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useTheme } from '@/contexts/ThemeContext';
+import Link from 'next/link';
 
 function VerifyEmailContent() {
   const [code, setCode] = useState('');
@@ -14,6 +16,7 @@ function VerifyEmailContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const email = searchParams.get('email');
+  const { colors, theme } = useTheme();
 
   useEffect(() => {
     if (!email) {
@@ -107,84 +110,131 @@ function VerifyEmailContent() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-white">
-            Verify Your Email
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
-            Please verify your email to complete your account creation.
-          </p>
-          <p className="mt-1 text-center text-sm text-gray-600 dark:text-gray-400">
-            We've sent a 6-digit verification code to:
-          </p>
-          <p className="text-center text-sm font-medium text-blue-600 dark:text-blue-400">
-            {email}
-          </p>
+    <div 
+      className="min-h-screen flex items-center justify-center px-4 py-16 pt-24"
+      style={{ backgroundColor: colors.background }}
+    >
+      <div className="w-full max-w-md">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-bold mb-1" style={{ color: colors.foreground }}>
+              Verify Your Email
+            </h1>
+            <p className="text-sm" style={{ color: colors.cardForeground, opacity: 0.7 }}>
+              Please verify your email to complete your account creation.
+            </p>
+            <p className="text-sm mt-1" style={{ color: colors.cardForeground, opacity: 0.7 }}>
+              We've sent a 6-digit verification code to:
+            </p>
+            <p className="text-sm font-medium mt-1" style={{ color: colors.accent }}>
+              {email}
+            </p>
+          </div>
+          <div className="flex-shrink-0">
+            <Link 
+              href="/signup" 
+              className="text-xs hover:underline transition-colors duration-200 whitespace-nowrap"
+              style={{ color: colors.accent }}
+            >
+              Back to Sign Up
+            </Link>
+          </div>
         </div>
 
-        <form className="mt-8 space-y-6" onSubmit={handleVerification}>
-          <div>
-            <label htmlFor="code" className="sr-only">
-              Verification Code
-            </label>
-            <Input
-              id="code"
-              name="code"
-              type="text"
-              required
-              className="text-center text-2xl font-mono tracking-widest"
-              placeholder="Enter 6-digit code"
-              value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              maxLength={6}
-            />
-          </div>
-
-          {error && (
-            <div className="text-red-600 text-sm text-center bg-red-50 dark:bg-red-900/20 p-3 rounded">
-              {error}
-            </div>
-          )}
-
-          {message && (
-            <div className="text-green-600 text-sm text-center bg-green-50 dark:bg-green-900/20 p-3 rounded">
-              {message}
-            </div>
-          )}
-
-          <div className="space-y-4">
-            <Button
-              type="submit"
-              disabled={loading || code.length !== 6}
-              className="w-full"
-            >
-              {loading ? 'Verifying...' : 'Verify Email'}
-            </Button>
-
-            <div className="text-center">
-              <button
-                type="button"
-                onClick={resendCode}
-                disabled={loading}
-                className="text-sm text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300 underline"
+        {/* Main Form Container */}
+        <div 
+          className="p-6 rounded-lg border shadow-lg"
+          style={{ 
+            backgroundColor: colors.card,
+            borderColor: colors.border,
+            boxShadow: theme === 'dark' 
+              ? '0 20px 40px -12px rgba(0, 0, 0, 0.8)' 
+              : '0 20px 40px -12px rgba(0, 0, 0, 0.15)'
+          }}
+        >
+          <form className="space-y-6" onSubmit={handleVerification}>
+            <div>
+              <label 
+                htmlFor="code" 
+                className="block text-sm font-medium mb-2"
+                style={{ color: colors.cardForeground }}
               >
-                Didn't receive the code? Send again
-              </button>
+                Verification Code
+              </label>
+              <input
+                id="code"
+                name="code"
+                type="text"
+                required
+                className="w-full px-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-opacity-50 focus:border-opacity-50 transition-all duration-200 outline-none text-center text-2xl font-mono tracking-widest"
+                style={{ 
+                  backgroundColor: colors.background, 
+                  borderColor: colors.border,
+                  color: colors.foreground,
+                  '--tw-ring-color': colors.accent
+                } as React.CSSProperties}
+                placeholder="Enter 6-digit code"
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                maxLength={6}
+              />
             </div>
 
-            <div className="text-center">
+            {error && (
+              <div className="border text-sm px-4 py-2.5 rounded-lg" style={{
+                backgroundColor: theme === 'dark' ? '#7f1d1d' : '#fef2f2',
+                borderColor: theme === 'dark' ? '#dc2626' : '#fecaca',
+                color: theme === 'dark' ? '#fca5a5' : '#dc2626'
+              }}>
+                {error}
+              </div>
+            )}
+
+            {message && (
+              <div className="border text-sm px-4 py-2.5 rounded-lg" style={{
+                backgroundColor: theme === 'dark' ? '#064e3b' : '#f0fdf4',
+                borderColor: theme === 'dark' ? '#059669' : '#bbf7d0',
+                color: theme === 'dark' ? '#6ee7b7' : '#059669'
+              }}>
+                {message}
+              </div>
+            )}
+
+            <div className="space-y-4">
               <button
-                type="button"
-                onClick={() => router.push('/signup')}
-                className="text-sm text-gray-600 hover:text-gray-500 dark:text-gray-400 dark:hover:text-gray-300 underline"
+                type="submit"
+                disabled={loading || code.length !== 6}
+                className="w-full font-medium py-2.5 px-4 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ 
+                  backgroundColor: colors.accent, 
+                  color: 'white' 
+                }}
               >
-                Back to Sign Up
+                {loading ? (
+                  <div className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Verifying...
+                  </div>
+                ) : (
+                  'Verify Email'
+                )}
               </button>
+
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={resendCode}
+                  disabled={loading}
+                  className="text-sm hover:underline transition-colors duration-200"
+                  style={{ color: colors.accent }}
+                >
+                  Didn't receive the code? Send again
+                </button>
+              </div>
             </div>
-          </div>
-        </form>
+          </form>
+        </div>
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import Link from 'next/link';
+import { FiEye, FiEyeOff } from 'react-icons/fi';
 
 const handleOAuthLogin = (provider: 'google' | 'github') => {
   // OAuth functionality disabled for now
@@ -25,6 +26,7 @@ function LoginContent() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showEmailLogin, setShowEmailLogin] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   
   // Verification states
   const [showVerification, setShowVerification] = useState(false);
@@ -317,21 +319,34 @@ function LoginContent() {
                         Forgot your password?
                       </Link>
                     </div>
-                    <input
-                      id="password"
-                      type="password"
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-opacity-50 focus:border-opacity-50 transition-all duration-200 outline-none"
-                      style={{ 
-                        backgroundColor: colors.background, 
-                        borderColor: colors.border,
-                        color: colors.foreground,
-                        '--tw-ring-color': colors.accent
-                      } as React.CSSProperties}
-                      placeholder="Enter your password"
-                    />
+                    <div className="relative">
+                      <input
+                        id="password"
+                        type={showPassword ? "text" : "password"}
+                        required
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full px-4 py-3 pr-12 border rounded-lg focus:ring-2 focus:ring-opacity-50 focus:border-opacity-50 transition-all duration-200 outline-none"
+                        style={{ 
+                          backgroundColor: colors.background, 
+                          borderColor: colors.border,
+                          color: colors.foreground,
+                          '--tw-ring-color': colors.accent
+                        } as React.CSSProperties}
+                        placeholder="Enter your password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute inset-y-0 right-0 flex items-center pr-3 hover:opacity-70 transition-opacity"
+                      >
+                        {showPassword ? (
+                          <FiEyeOff className="w-5 h-5" style={{ color: colors.cardForeground }} />
+                        ) : (
+                          <FiEye className="w-5 h-5" style={{ color: colors.cardForeground }} />
+                        )}
+                      </button>
+                    </div>
                   </div>
 
                   <button
