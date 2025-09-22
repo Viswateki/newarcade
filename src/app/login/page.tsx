@@ -80,11 +80,12 @@ function LoginContent() {
           console.log('Debug verification code:', result.showCode);
         }
       } else {
-        // Successful login, wait a moment for state to update then redirect
+        // Successful login, wait for state to update then redirect
         console.log('✅ Login successful, redirecting to dashboard');
+        // Wait a bit longer for the user state to be properly set
         setTimeout(() => {
           router.push('/dashboard');
-        }, 100);
+        }, 200);
       }
     } catch (err: any) {
       setError(err.message || 'Login failed. Please check your credentials.');

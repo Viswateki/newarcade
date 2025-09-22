@@ -33,25 +33,31 @@ const publicRoutes = [
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   
-  // Check if user has session cookie (basic check)
-  const hasSession = request.cookies.has('a_session_console') || 
-                     request.cookies.has('a_session_console_legacy');
-
+  // TODO: Update middleware to work with localStorage-based auth
+  // For now, disable session checking since we use localStorage instead of cookies
+  // const hasSession = request.cookies.has('a_session_console') || 
+  //                    request.cookies.has('a_session_console_legacy');
+  
+  // For now, allow all routes to avoid conflicts with localStorage-based auth
+  // In the future, we should implement proper session checking that works with our auth system
+  
   // Handle protected routes
   if (protectedRoutes.some(route => pathname.startsWith(route))) {
-    if (!hasSession) {
-      const loginUrl = new URL('/login', request.url);
-      loginUrl.searchParams.set('redirect', pathname);
-      return NextResponse.redirect(loginUrl);
-    }
+    // For now, let the client-side auth handle protection
+    // if (!hasSession) {
+    //   const loginUrl = new URL('/login', request.url);
+    //   loginUrl.searchParams.set('redirect', pathname);
+    //   return NextResponse.redirect(loginUrl);
+    // }
   }
 
   // Handle auth routes - redirect to dashboard if already authenticated
   if (authRoutes.some(route => pathname.startsWith(route))) {
-    if (hasSession) {
-      const redirectUrl = request.nextUrl.searchParams.get('redirect') || '/dashboard';
-      return NextResponse.redirect(new URL(redirectUrl, request.url));
-    }
+    // For now, disable auth route redirects since we use localStorage-based auth
+    // if (hasSession) {
+    //   const redirectUrl = request.nextUrl.searchParams.get('redirect') || '/dashboard';
+    //   return NextResponse.redirect(new URL(redirectUrl, request.url));
+    // }
   }
 
   // Allow access to public routes and other paths

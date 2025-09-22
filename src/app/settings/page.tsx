@@ -20,6 +20,23 @@ import {
   Key
 } from 'lucide-react';
 
+interface UserType {
+  id: string;
+  email: string;
+  name: string;
+  username: string;
+  type: string;
+  arcadeCoins: number;
+  firstName?: string;
+  lastName?: string;
+  linkedinProfile?: string;
+  githubProfile?: string;
+  social_links?: string | object;
+  image?: string;
+  isEmailVerified: boolean;
+  usernameLastUpdatedAt?: string;
+}
+
 type SettingsTab = 'profile' | 'edit-profile' | 'change-email' | 'security';
 
 // Profile Overview Component
@@ -130,7 +147,7 @@ function ProfileOverview() {
 // Edit Profile Component
 function EditProfile() {
   const { colors } = useTheme();
-  const { user, refreshUser } = useAuth();
+  const { user, refreshUser, forceRefreshUser, updateUserInContext } = useAuth();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
@@ -198,8 +215,54 @@ function EditProfile() {
 
       if (result.success) {
         setMessage({ type: 'success', text: 'Profile updated successfully!' });
-        // Refresh user data from database to get latest changes
-        await refreshUser();
+        
+        // Update user context immediately with the new data to prevent logout
+        const updatedUserData: Partial<UserType> = {
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          username: formData.username,
+        };
+
+        // Update the combined 'name' field for display
+        const combinedName = `${formData.firstName || ''} ${formData.lastName || ''}`.trim();
+        if (combinedName) {
+          updatedUserData.name = combinedName;
+        }
+
+        // Handle social links properly
+        if (formData.linkedinProfile !== undefined || formData.githubProfile !== undefined) {
+          let socialLinks: any = {};
+          try {
+            if (user?.social_links) {
+              socialLinks = typeof user.social_links === 'string' 
+                ? JSON.parse(user.social_links) 
+                : user.social_links;
+            }
+          } catch (e) {
+            socialLinks = {};
+          }
+          
+          if (formData.linkedinProfile !== undefined) {
+            socialLinks.linkedin = formData.linkedinProfile;
+            updatedUserData.linkedinProfile = formData.linkedinProfile;
+          }
+          if (formData.githubProfile !== undefined) {
+            socialLinks.github = formData.githubProfile;
+            updatedUserData.githubProfile = formData.githubProfile;
+          }
+          
+          updatedUserData.social_links = JSON.stringify(socialLinks);
+        }
+
+        // Update user context immediately to prevent logout
+        console.log('🔄 Updating user context with profile changes...');
+        updateUserInContext(updatedUserData);
+        
+        // Optionally refresh user data in background (but don't wait for it or clear user on failure)
+        setTimeout(() => {
+          console.log('🔄 Background refresh of user data...');
+          refreshUser(); // Use gentler refresh instead of forceRefreshUser
+        }, 100);
       } else {
         setMessage({ type: 'error', text: result.message });
       }
@@ -262,19 +325,28 @@ function EditProfile() {
         <div>
           <label className="block text-sm font-medium mb-2" style={{ color: colors.foreground }}>
             Username
+            <span className="text-xs opacity-60 ml-2">
+              ({formData.username.length}/12 characters)
+            </span>
           </label>
           <div className="relative">
             <input
               type="text"
               value={formData.username}
-              onChange={(e) => handleInputChange('username', e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value.length <= 12) {
+                  handleInputChange('username', value);
+                }
+              }}
+              maxLength={12}
               className="w-full pl-10 pr-3 py-2.5 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors text-sm"
               style={{
                 backgroundColor: colors.muted,
                 borderColor: colors.border,
                 color: colors.foreground
               }}
-              placeholder="Enter your username"
+              placeholder="Enter your username (max 12 chars)"
             />
             <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4" style={{ color: colors.foreground, opacity: 0.5 }} />
           </div>
@@ -930,17 +1002,20 @@ export default function SettingsPage() {
   const { user, logout, refreshUser } = useAuth();
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
 
-  // Auto-refresh user data when settings page loads to ensure latest data
-  useEffect(() => {
-    // Longer delay to ensure login state is stable
-    const timer = setTimeout(() => {
-      if (user) { // Only refresh if we have a user
-        refreshUser();
-      }
-    }, 2000);
-    
-    return () => clearTimeout(timer);
-  }, [user]); // Depend on user so it runs after login
+  // Remove auto-refresh on settings page load to prevent logout issues
+  // The refreshUser() call was causing logout because the /api/auth/me endpoint
+  // runs server-side and can't access localStorage, returning authenticated:false
+  // 
+  // useEffect(() => {
+  //   // Auto-refresh user data when settings page loads to ensure latest data
+  //   const timer = setTimeout(() => {
+  //     if (user) { // Only refresh if we have a user
+  //       refreshUser();
+  //     }
+  //   }, 2000);
+  //   
+  //   return () => clearTimeout(timer);
+  // }, [user]); // Depend on user so it runs after login
 
   const handleSignOut = async () => {
     try {

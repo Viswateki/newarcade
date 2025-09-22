@@ -2,7 +2,8 @@ import { Client, Databases, Storage, Account, ID, Query } from 'appwrite';
 import { databases } from './appwrite';
 import bcrypt from 'bcryptjs';
 
-// In-memory storage for verification codes
+// In-memory storage for verification codes (temporary fallback)
+// Main verification codes are stored in database, this is for password reset only
 const verificationCodes: { [email: string]: { code: string; expiry: number; userName: string } } = {};
 
 // Track when the server starts
@@ -235,14 +236,28 @@ class AuthService {
         const verificationCode = generateVerificationCode();
         const expiry = Date.now() + 10 * 60 * 1000; // 10 minutes from now
         
-        // Store verification code in memory
-        verificationCodes[emailValidation.sanitized] = {
-          code: verificationCode,
-          expiry,
-          userName: userProfile.name
-        };
-        
-        console.log('✅ Verification code generated for unverified user');
+        // Store verification code in database
+        try {
+          await databases.updateDocument(
+            this.databaseId,
+            this.userCollectionId,
+            userProfile.$id,
+            {
+              verificationCode: verificationCode,
+              verificationCodeExpiry: new Date(expiry).toISOString()
+            }
+          );
+          console.log('✅ Verification code stored in database for unverified user');
+        } catch (updateError) {
+          console.error('❌ Failed to store verification code in database:', updateError);
+          // Fallback to in-memory storage
+          verificationCodes[emailValidation.sanitized] = {
+            code: verificationCode,
+            expiry,
+            userName: userProfile.name
+          };
+          console.log('⚠️ Using in-memory storage as fallback');
+        }
         
         return { 
           success: false, 
@@ -308,6 +323,9 @@ class AuthService {
       };
 
       console.log('✅ Custom login successful for user:', user.email);
+
+      // Store the user session immediately after successful login
+      this.storeUserSession(user);
 
       return {
         success: true,
@@ -479,6 +497,7 @@ class AuthService {
       const currentTime = Date.now();
       
       if (currentTime > expiryTime) {
+        console.log('❌ Session expired, clearing storage');
         localStorage.removeItem('auth_user');
         localStorage.removeItem('auth_session_expiry');
         return null;
@@ -488,7 +507,7 @@ class AuthService {
       return user;
       
     } catch (error) {
-      console.error('Error retrieving current user:', error);
+      console.error('❌ Error retrieving current user:', error);
       // Clear corrupted session data
       if (typeof window !== 'undefined') {
         localStorage.removeItem('auth_user');
@@ -1010,6 +1029,19 @@ class AuthService {
       
       if (profileData.firstName !== undefined) updateData.firstName = profileData.firstName;
       if (profileData.lastName !== undefined) updateData.lastName = profileData.lastName;
+      
+      // Update the combined 'name' field when firstName or lastName is changed
+      if (profileData.firstName !== undefined || profileData.lastName !== undefined) {
+        const firstName = profileData.firstName !== undefined ? profileData.firstName : userDoc.firstName || '';
+        const lastName = profileData.lastName !== undefined ? profileData.lastName : userDoc.lastName || '';
+        updateData.name = `${firstName} ${lastName}`.trim() || userDoc.name || '';
+        console.log('📝 Updating combined name field:', updateData.name);
+      }
+      
+      if (profileData.image !== undefined) {
+        console.log('📸 Adding image to update data:', profileData.image);
+        updateData.image = profileData.image;
+      }
       if (profileData.username !== undefined) {
         // Check if username is already taken by another user
         const usernameCheck = await databases.listDocuments(
@@ -1055,6 +1087,12 @@ class AuthService {
         updateData.social_links = JSON.stringify(socialLinks);
       }
 
+      console.log('🔄 Updating document with data:', {
+        documentId: userDoc.$id,
+        updateData: updateData,
+        hasImage: !!updateData.image
+      });
+
       // Update the document
       const updatedUser = await databases.updateDocument(
         this.databaseId,
@@ -1063,7 +1101,7 @@ class AuthService {
         updateData
       );
 
-      console.log('✅ Profile updated successfully');
+      console.log('✅ Profile updated successfully in database');
 
       // Update local session if this is the current user
       const currentUser = await this.getCurrentUser();
@@ -1082,9 +1120,11 @@ class AuthService {
 
         const updatedSessionUser: AuthUser = {
           ...currentUser,
+          name: updateData.name || currentUser.name,
           username: updateData.username || currentUser.username,
           firstName: updateData.firstName ?? currentUser.firstName,
           lastName: updateData.lastName ?? currentUser.lastName,
+          image: updateData.image ?? currentUser.image,
           linkedinProfile: socialLinks.linkedin ?? currentUser.linkedinProfile,
           githubProfile: socialLinks.github ?? currentUser.githubProfile,
           social_links: updateData.social_links || currentUser.social_links,

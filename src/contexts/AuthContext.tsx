@@ -28,6 +28,9 @@ interface AuthContextType {
   logout: () => Promise<void>;
   checkUserExists: (email: string) => Promise<{ exists: boolean }>;
   refreshUser: () => Promise<void>;
+  forceRefreshUser: () => Promise<void>;
+  clearUserCache: () => void;
+  updateUserInContext: (updatedUserData: Partial<User>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -76,10 +79,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const checkAuth = async () => {
     try {
       console.log('🔍 Checking authentication...');
+      
+      // First, try to get user from localStorage directly for faster response
+      if (typeof window !== 'undefined') {
+        const storedUser = localStorage.getItem('auth_user');
+        const sessionExpiry = localStorage.getItem('auth_session_expiry');
+        
+        console.log('🔍 localStorage check:', {
+          hasAuthUser: !!storedUser,
+          hasSessionExpiry: !!sessionExpiry
+        });
+        
+        // If we have valid stored data, set user immediately
+        if (storedUser && sessionExpiry) {
+          try {
+            const expiryTime = parseInt(sessionExpiry);
+            const currentTime = Date.now();
+            
+            if (currentTime <= expiryTime) {
+              const user = JSON.parse(storedUser);
+              console.log('✅ Setting user from localStorage immediately:', user.email);
+              setUser(user);
+              setLoading(false);
+              return; // Exit early if we have valid cached data
+            } else {
+              console.log('❌ Session expired, clearing storage');
+              localStorage.removeItem('auth_user');
+              localStorage.removeItem('auth_session_expiry');
+            }
+          } catch (e) {
+            console.log('❌ Error parsing stored session, clearing');
+            localStorage.removeItem('auth_user');
+            localStorage.removeItem('auth_session_expiry');
+          }
+        }
+      }
+      
+      // If no valid cached data, check with authService
       const currentUser = await authService.getCurrentUser();
       
       if (currentUser) {
-        console.log('✅ User authenticated successfully:', currentUser.email);
+        console.log('✅ User authenticated via authService:', currentUser.email);
         setUser(currentUser);
       } else {
         console.log('❌ No authenticated user found');
@@ -109,7 +149,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('✅ Login successful, setting user:', result.user);
         setUser(result.user);
         
-        // Store session in localStorage (client-side)
+        // Store session in localStorage (client-side) - authService already did this, but let's be sure
         storeUserSession(result.user);
         
         return {};
@@ -189,6 +229,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         headers: {
           'Content-Type': 'application/json',
         },
+        cache: 'no-cache'
       });
       
       if (response.ok) {
@@ -200,17 +241,109 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(result.user);
           storeUserSession(result.user);
           setLastRefresh(now);
-        } else if (result.success && !result.authenticated) {
-          console.log('⚠️ User not authenticated according to API');
-          // Don't clear user state here as it might be a temporary issue
+        } else if (result.success && result.authenticated === false) {
+          // Only log out if the API explicitly says the user is not authenticated
+          console.log('⚠️ User not authenticated according to API - logging out');
+          setUser(null);
+          clearUserSession();
         } else {
-          console.log('❌ No user data found in API response');
+          console.log('❌ No user data found in API response - keeping current user');
+          // Don't clear user state if API response is unclear
         }
+      } else if (response.status === 501) {
+        // API endpoint is disabled - this is expected, don't log out user
+        console.log('⚠️ API endpoint disabled, keeping current user session');
+        return;
       } else {
         console.log('❌ API call failed with status:', response.status);
+        // Don't clear user state on API failure - keep current user logged in
       }
     } catch (error) {
       console.error('❌ Failed to refresh user data:', error);
+      // Don't clear user state on error - keep current user logged in
+    }
+  };
+
+  const forceRefreshUser = async () => {
+    try {
+      console.log('🔄 Force refreshing user data (bypassing throttle)...');
+      
+      // Clear any cached user data first
+      clearUserCache();
+      
+      // Force fresh API call without cache
+      const response = await fetch('/api/auth/me?' + new URLSearchParams({
+        t: Date.now().toString() // Cache bust parameter
+      }), {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        cache: 'no-cache'
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('📡 Force refresh API response:', result);
+        
+        if (result.success && result.user) {
+          console.log('✅ Fresh user data received via force refresh:', result.user);
+          setUser(result.user);
+          storeUserSession(result.user);
+          setLastRefresh(Date.now());
+        } else if (result.success && result.authenticated === false) {
+          // Only log out if the API explicitly says the user is not authenticated
+          console.log('⚠️ User not authenticated according to API - logging out');
+          setUser(null);
+          clearUserSession();
+        } else {
+          console.log('❌ No user data found in force refresh API response - keeping current user');
+          // Don't clear user state if API response is unclear
+        }
+      } else {
+        console.log('❌ Force refresh API call failed with status:', response.status);
+        // Don't clear user state on API failure - keep current user logged in
+      }
+    } catch (error) {
+      console.error('❌ Failed to force refresh user data:', error);
+      // Don't clear user state on error - keep current user logged in
+    }
+  };
+
+  const clearUserCache = () => {
+    try {
+      console.log('🧹 Clearing user cache...');
+      clearUserSession();
+      setLastRefresh(0); // Reset throttling
+    } catch (error) {
+      console.error('❌ Failed to clear user cache:', error);
+    }
+  };
+
+  const updateUserInContext = (updatedUserData: Partial<User>) => {
+    try {
+      if (!user) {
+        console.log('⚠️ Cannot update user context - no current user');
+        return;
+      }
+
+      console.log('🔄 Updating user in context with data:', updatedUserData);
+      
+      // Merge the updated data with current user data
+      const updatedUser = {
+        ...user,
+        ...updatedUserData
+      };
+
+      // Update the context state
+      setUser(updatedUser);
+      
+      // Update the stored session
+      storeUserSession(updatedUser);
+      
+      console.log('✅ User context updated successfully');
+    } catch (error) {
+      console.error('❌ Failed to update user in context:', error);
     }
   };
 
@@ -222,7 +355,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signup, 
       logout, 
       checkUserExists,
-      refreshUser
+      refreshUser,
+      forceRefreshUser,
+      clearUserCache,
+      updateUserInContext
     }}>
       {children}
     </AuthContext.Provider>

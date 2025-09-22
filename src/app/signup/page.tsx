@@ -267,13 +267,22 @@ function SignupContent() {
                   style={{ color: colors.cardForeground }}
                 >
                   Username *
+                  <span className="text-xs opacity-60 ml-2">
+                    ({username.length}/12 characters)
+                  </span>
                 </label>
                 <input
                   id="username"
                   type="text"
                   required
                   value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value.length <= 12) {
+                      setUsername(value);
+                    }
+                  }}
+                  maxLength={12}
                   className="w-full px-3 py-2.5 border rounded-lg focus:ring-2 focus:ring-opacity-50 focus:border-opacity-50 transition-all duration-200 outline-none text-sm"
                   style={{ 
                     backgroundColor: colors.background, 
@@ -281,7 +290,7 @@ function SignupContent() {
                     color: colors.foreground,
                     '--tw-ring-color': colors.accent
                   } as React.CSSProperties}
-                  placeholder="Choose a unique username"
+                  placeholder="Choose a unique username (max 12 chars)"
                 />
               </div>
 
@@ -380,7 +389,7 @@ function SignupContent() {
                     Creating account...
                   </div>
                 ) : (
-                  'Create Account'
+                  'Create & Verify'
                 )}
               </button>
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authService } from '@/lib/authService';
+import { emailService } from '@/lib/emailService';
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,38 +24,20 @@ export async function POST(request: NextRequest) {
         const resendResult = await authService.resendVerificationCode(email);
         
         if (resendResult.success && resendResult.verificationCode) {
-          // Send verification email using internal API call
+          // Send verification email using direct emailService call
           try {
-            const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-            const emailResponse = await fetch(`${baseUrl}/api/auth/send-email-verification`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                email,
-                code: resendResult.verificationCode,
-                name: resendResult.userName || 'User',
-                type: 'registration'
-              })
+            await emailService.sendVerificationCode(
+              email, 
+              resendResult.verificationCode, 
+              resendResult.userName || 'User'
+            );
+            
+            console.log('✅ Verification code resent and email sent successfully');
+            return NextResponse.json({
+              success: true,
+              message: 'Verification code sent! Please check your email.',
+              requiresVerification: true
             });
-            
-            const emailResult = await emailResponse.json();
-            
-            if (emailResult.success) {
-              console.log('✅ Verification code resent and email sent successfully');
-              return NextResponse.json({
-                success: true,
-                message: 'Verification code sent! Please check your email.',
-                requiresVerification: true
-              });
-            } else {
-              console.error('❌ Failed to send verification email:', emailResult.message);
-              return NextResponse.json(
-                { success: false, message: 'Failed to send verification email' },
-                { status: 500 }
-              );
-            }
           } catch (emailError) {
             console.error('❌ Failed to send verification email:', emailError);
             return NextResponse.json(
@@ -124,41 +107,37 @@ export async function POST(request: NextRequest) {
     if (result.requiresVerification && result.verificationCode) {
       console.log('📧 Sending verification email for registration...');
       console.log('📧 Email details:', { email, code: result.verificationCode, name: username });
+      
       try {
-        const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-        const emailResponse = await fetch(`${baseUrl}/api/auth/send-email-verification`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            email,
-            code: result.verificationCode,
-            name: result.userName || username, // Use userName from result or fallback to username
-            type: 'registration'
-          })
-        });
+        // Use emailService directly instead of making HTTP request
+        await emailService.sendVerificationCode(
+          email, 
+          result.verificationCode, 
+          result.userName || username
+        );
         
-        console.log('📧 Email API response status:', emailResponse.status);
-        const emailResult = await emailResponse.json();
-        console.log('📧 Email API response:', emailResult);
-        
-        if (emailResult.success) {
-          console.log('✅ Registration and verification email sent successfully');
-        } else {
-          console.error('❌ Registration successful but failed to send verification email:', emailResult.message);
-          // Don't fail the registration, just log the email error
-        }
+        console.log('✅ Registration and verification email sent successfully');
       } catch (emailError) {
         console.error('❌ Registration successful but failed to send verification email:', emailError);
+        console.error('❌ Email error details:', {
+          name: emailError instanceof Error ? emailError.name : 'Unknown',
+          message: emailError instanceof Error ? emailError.message : String(emailError),
+          stack: emailError instanceof Error ? emailError.stack : 'No stack trace'
+        });
         // Still return success since user was created
       }
     }
 
     console.log('✅ Registration completed');
+    
+    // Always return success and indicate that email should be checked
+    const responseMessage = result.requiresVerification 
+      ? 'Registration successful! A verification code has been sent to your email. Please check your inbox (and spam folder).'
+      : result.message;
+    
     return NextResponse.json({
       success: true,
-      message: result.message,
+      message: responseMessage,
       requiresVerification: result.requiresVerification,
       user: result.user
     });

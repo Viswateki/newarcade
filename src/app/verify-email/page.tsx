@@ -114,6 +114,9 @@ function VerifyEmailContent() {
             Verify Your Email
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
+            Please verify your email to complete your account creation.
+          </p>
+          <p className="mt-1 text-center text-sm text-gray-600 dark:text-gray-400">
             We've sent a 6-digit verification code to:
           </p>
           <p className="text-center text-sm font-medium text-blue-600 dark:text-blue-400">
